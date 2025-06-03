@@ -534,20 +534,20 @@ companyid:4045657
 		if (Environment == "QA")
 		{
 			downloadPath = System.IO.Path.Combine(directory, @"QATESTRESULTS\CMB\");
-			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\PlaywrightTests\CMB\QA\");
+			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\CMB\QA\");
 		}
 
 		if (Environment == "UAT")
 		{
 			downloadPath = System.IO.Path.Combine(directory, @"UATTESTRESULTS\CMB\");
-			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\PlaywrightTests\CMB\UAT\");
+			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\CMB\UAT\");
 		}
 
 		if (Environment == "PROD")
 		{
-			//downloadPath EXAMPLE  C:\Sourcegit\ecat2023\catalog-manager\PlaywrightTests\PlaywrightTests\bin\Debug\net7.0\PRODTESTRESULTS\CMB\
-			//TC01_CATALOG_FILE_PATH EXAMPLE C:\\Sourcegit\ecat2023\catalog-manager\PlaywrightTests\PlaywrightTests\\CMB\PROD\
-			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\PlaywrightTests\CMB\PROD\");//path where import catalog files required for some tests are stored
+			//downloadPath EXAMPLE  C:\Sourcegit\ecat2023\catalog-manager\PlaywrightTests\bin\Debug\net7.0\PRODTESTRESULTS\CMB\
+			//TC01_CATALOG_FILE_PATH EXAMPLE C:\\Sourcegit\ecat2023\catalog-manager\PlaywrightTests\\CMB\PROD\
+			TC01_CATALOG_FILE_PATH = System.IO.Path.Combine(playwrightTestsSubFolderStart, @"PlaywrightTests\CMB\PROD\");//path where import catalog files required for some tests are stored
 			downloadPath = System.IO.Path.Combine(directory, @"PRODTESTRESULTS\CMB\");//where downloads/exception screenshots are saved to
 
 			Console.WriteLine("TC01_CATALOG_FILE_PATH: " + TC01_CATALOG_FILE_PATH);
