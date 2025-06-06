@@ -608,7 +608,7 @@ companyid:4045657
 		await Page.GotoAsync(PORTAL_LOGIN);
 		//The marquee may cause network never idle
 		await Page.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
-		await Task.Delay(1000);
+		await Page.WaitForTimeoutAsync(1000);
 		await DeleteFooter();
 		Console.WriteLine("Filling in credentials.");
 		await Page.Locator("//*[@id='signInUsername']").FillAsync(username);

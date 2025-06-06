@@ -1,4 +1,6 @@
-public class Process(string pid, string pType, string startTime, string sup, string cust, string status)
+namespace PlaywrightTests;
+
+class Process(string pid, string pType, string startTime, string sup, string cust, string status)
 {
     public string Pid = pid;
     public string PType = pType;

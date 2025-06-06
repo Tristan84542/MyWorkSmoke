@@ -2,7 +2,8 @@ using System;
 using System.IO;
 using System.Net;
 
-class FtpUploader
+namespace PlaywrightTests;
+class FtpUploader : CMom
 {
     public void UploadFile(string ftpUrl, string filePath, string username, string password)
     {
