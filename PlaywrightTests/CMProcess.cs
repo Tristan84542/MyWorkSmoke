@@ -1,11 +1,21 @@
 namespace PlaywrightTests;
 
-class Process(string pid, string pType, string startTime, string sup, string cust, string status)
+public class CMProcess
 {
-    public string Pid = pid;
-    public string PType = pType;
-    public string StartTime = startTime;
-    public string Sup = sup;
-    public string Cust = cust;
-    public string Status = status;
+    public string Pid { get; set; }
+    public string PName { get; set; }
+    public string STime { get; set; }
+    public string Sup { get; set; }
+    public string Cust { get; set; }
+    public string State { get; set; } 
+
+    public CMProcess (string id,  string name, string time, string sup, string cust, string state)
+    {
+        Pid = id;
+        PName = name;
+        STime = time;
+        Sup = sup; 
+        Cust = cust;
+        State = state;
+    }
 }

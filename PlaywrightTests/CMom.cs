@@ -7,6 +7,10 @@ using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
+using System.Diagnostics.CodeAnalysis;
+
+using static Microsoft.Playwright.Assertions;
 
 
 
@@ -167,5 +171,63 @@ public class CMom : CMParam
         await waitState("dom");
         await ReloadIfBackdrop();
 
+    }
+
+    //Universal find the block id of a customer / supplier by name
+    public static async Task<string> FindCatalog(string name)
+    {
+        string path = $"//strong[normalize-space(text())='{name}']/ancestor::div[@id][1]";
+        var target = tp.Locator($"xpath={path}");
+        var tarParent = await target.ElementHandleAsync();
+        if (tarParent is null)
+        {
+            return "";
+        }
+        var id = await tarParent.GetAttributeAsync("id");
+        Console.WriteLine($"Block id {id}" );
+        return id;
+    }
+    public static async Task<string> GetMetaId(string id)
+    {
+        Match match = Regex.Match(id, @"\d+");
+        Console.WriteLine($"MetaCat Id: {match}");
+        if (match.Success)
+        {
+            return match.Value;
+        } else 
+        {
+            throw new Exception($"Cannot find MetacatId from {match.Value}");
+        }
+    }
+    public static async Task CMSUploadFile (string custName, string[] file, string[] type)
+    {
+        var blocId = await FindCatalog (custName);
+        var bloc = tp.Locator($"id={blocId}");
+        string eCatID = await GetMetaId(blocId);
+        await bloc.GetByText("Show more", new() { Exact = true}).ClickAsync();
+        await waitState("dom");
+        await DelayS(1);
+        await bloc.GetByText("Upload Files", new() { Exact = true}).ClickAsync();
+        await waitState("dom");
+        await DelayS(1);
+        //Reprocess files to contains path
+        string[] fileWPath = new string[file.Length];
+        for (int i = 0; i < file.Length; i++)
+        {
+            fileWPath[i] = FILE_PATH + file[i];
+        }
+        await tp.Locator($"[id='{eCatID}_fileSelect']").SetInputFilesAsync(fileWPath);
+        //Replace filename extension to zip and set file types
+        for (int i = 0; i < file.Length; i++)
+        {
+            string disFile = Regex.Replace(file[i], @"\.[^.]+$", ".zip");
+            await Expect(tp.Locator($"[id='{eCatID}_uploadFileList']")).ToContainTextAsync(disFile); //*[@id="63080_uploadFileList"]
+            await tp.Locator($"[id='{eCatID}_{disFile}_selectType']").SelectOptionAsync(type[i]);
+        }
+        //Process file
+        await tp.Locator($"[onclick=\"processUploadedFiles('{eCatID}')\"]").ClickAsync();
+        await waitState("load");
+        await waitState("dom");
+        
     }
 }
