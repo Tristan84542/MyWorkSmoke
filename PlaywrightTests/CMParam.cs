@@ -23,6 +23,7 @@ public class CMParam
 	public static string CMS_PWDA; //cms pwd for instance A
 	public static string CMS_USRB; //cms user for instance B
     public static string CMS_PWDB; //cms pwd for instance B
+    public static string CMS_SUPB_NAME;
     public static string CMS_CUSTB1_NAME;
     public static string CMS_CUSTB2_NAME;
     public static string CMS_CUSTB1_ID;
@@ -57,6 +58,7 @@ public class CMParam
             CMS_PWDB = CMS_PWDA;
 			CMS_USRC = CMS_USRA;
 			CMS_PWDC = CMS_PWDA;
+            CMS_SUPB_NAME = "SV Supplier 1";
             CMS_CUSTB1_NAME = "eCat CM buyer QA1";
             CMS_CUSTB2_NAME = "eCat CM buyer QA 2";
             TXT_FILE = "QA_txt_scf_catalog.zip";
