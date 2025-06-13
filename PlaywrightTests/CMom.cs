@@ -62,7 +62,7 @@ public class CMom : CMParam
         tp = await context.NewPageAsync();
 
         //Initialize CMParams
-        CMParam.InitParam(environment);
+        InitParam(environment);
     }
 
     [TearDown]
@@ -73,11 +73,28 @@ public class CMom : CMParam
         pw.Dispose();
     }
 
-    public static async Task<string> getMonTime()
+    public static async Task<string> GetMonTime()
     {
         DateTime now = DateTime.Now.AddMinutes(-1); //Minus current time by 1 minute
         string val = now.ToString("dd/MM/yyyy (HH:mm)");
         return val;
+    }
+
+    public static async Task<string> GetDLTime(string CMX)
+    {
+        DateTime now = DateTime.Now.AddMinutes(-1);
+        if (CMX.ToLower() == "b")
+        {
+            return now.ToString("dd/MM/yyyy HH:mm:ss");
+        }
+        else if (CMX.ToLower() == "s")
+        {
+            return now.ToString("(dd/MM/yyyy HH:mm:ss)");
+        }
+        else
+        {
+            throw new Exception("Invalid CM designation (b/s)");
+        }
     }
     public static async Task DelayMS (int ms)
     {
@@ -87,7 +104,14 @@ public class CMom : CMParam
     {
         await tp.WaitForTimeoutAsync(s * 1000);
     }
-    public static async Task waitState(string state)
+
+    public static async Task LoadDom()
+    {
+        await WaitLoad("load");
+        await DelayMS(500);
+        await WaitLoad("dom");
+    }
+    public static async Task WaitLoad(string state)
     {
         switch (state.ToLower())
         {
@@ -137,7 +161,7 @@ public class CMom : CMParam
         if (bdCnt > 0 && loadStyle.Contains("none")){
             Console.WriteLine("Backdrop exist after loading finished.\nReload " + tp.Url);
             await tp.ReloadAsync();
-            await waitState("dom");
+            await WaitLoad("dom");
             return true;
         } else
         {
@@ -153,8 +177,8 @@ public class CMom : CMParam
     public static async Task LogIn(string portal, string username, string password)
     {
         await tp.GotoAsync(portal);
-        await waitState("load");
-        await waitState("dom");
+        await WaitLoad("load");
+        await WaitLoad("dom");
         await DelayS(1);
         Console.WriteLine("Fill credentials");
         await tp.Locator("//*[@id='signInUsername']").FillAsync(username);
@@ -174,8 +198,8 @@ public class CMom : CMParam
         await panel.Locator("//*[@id=\"uiCustomerId\"]").FillAsync(custId);
         await DelayMS(200);
         await panel.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
-        await waitState("load");
-        await waitState("dom");
+        await WaitLoad("load");
+        await WaitLoad("dom");
         await ReloadIfBackdrop();
 
     }
@@ -213,10 +237,10 @@ public class CMom : CMParam
         string eCatID = await GetMetaId(blocId);
         await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
         await DelayS(2);
-        await waitState("dom");
+        await WaitLoad("dom");
         await bloc.GetByText("Upload Files", new() { Exact = true}).ClickAsync();
         await DelayS(2); 
-        await waitState("dom");
+        await WaitLoad("dom");
         //Reprocess files to contains path
         string[] fileWPath = new string[file.Length];
         for (int i = 0; i < file.Length; i++)
@@ -233,16 +257,16 @@ public class CMom : CMParam
         }
         await DelayS (1);
         //Process file
-        await tp.Locator($"a[onclick=\"processUploadedFiles('{eCatID}')\"]").ClickAsync(); //onclick="processUploadedFiles('63080')"
-        await waitState("load");
-        await waitState("dom");
+        await bloc.GetByText("Process Files").ClickAsync(); //Some doesn't have this onclick function?????
+        await WaitLoad("load");
+        await WaitLoad("dom");
         
     }
     public static async Task MonProcesses(string url, CMProcess[] tProc)
     {
         await tp.GotoAsync(url); //Go to monitor page
         await CatchStackTrace();
-        await waitState("dom");
+        await WaitLoad("dom");
         await DelayS(5);//Delay further 5 sec for stability
         Console.WriteLine("Hope monitor page stable after 5 sec");
         int itemPerPage = 10;
@@ -253,14 +277,14 @@ public class CMom : CMParam
             Console.WriteLine($"Set item per page to {itemPerPage}");
             await tp.Locator("ul[role='menu']").Locator($"a[onclick='setPageCount({itemPerPage})']").ClickAsync();
         }, response => response.Url.Contains("GetItemCount") && response.Status == 200, new() { Timeout = 60000 });
-        await waitState("dom");
+        await WaitLoad("dom");
         await DelayS(5);//Delay further 5 sec for stability
         await ReloadIfBackdrop();
         await tp.Locator("//*[@id=\"ddlRefreshTime\"]").SelectOptionAsync("0"); //Set for manual testing
         Console.WriteLine("Set to manual refresh. Will trigger a page load");
-        await waitState("load"); //Wait until page done loading
-        await waitState("idle");
-        await waitState("dom");
+        await WaitLoad("load"); //Wait until page done loading
+        await WaitLoad("idle");
+        await WaitLoad("dom");
         await DelayS(5);//Delay further 5 sec for stability
         await ReloadIfBackdrop();
         //For 1 minute, find the process by matching process, start time, supplier & customer
@@ -270,6 +294,19 @@ public class CMom : CMParam
         Boolean allMatch = false;
         //First read in all mon process
         CMProcess[] mainList = await ReadMainRow(itemPerPage);
+        //Handle process to be reprocessed
+        foreach (CMProcess process in tProc)
+        {
+            if (process.Pid != "") //IF any pid is empty then break loop and all match is false
+            {
+                allMatch = true;
+            }
+            else
+            {
+                allMatch = false;
+                break;
+            }
+        }
         //To match processes from monitor page
         while (!allMatch && tryCnt < 3)
         {
@@ -304,7 +341,7 @@ public class CMom : CMParam
                     Console.WriteLine("Delay 20 sec then refresh page and try again");
                     await DelayS(20);
                     await tp.Locator("a[onclick='getProcessItemList(1)']").ClickAsync();
-                    await waitState("dom");
+                    await WaitLoad("dom");
                     await ReloadIfBackdrop();
                     mainList = await ReadMainRow(itemPerPage);
                 }
