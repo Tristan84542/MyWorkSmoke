@@ -36,6 +36,8 @@ public class CMParam
     public static string CMS_B_XLS_CUSTID;
     public static string CMS_B_XLSX_CUSTID;
 
+    public static string CMB_USRB;
+    public static string CMB_PWDB;
     
     public static string CMS_USRC; //cms user for instance C
 	public static string CMS_PWDC; //cms pwd for instance C
@@ -75,6 +77,8 @@ public class CMParam
             CMS_B_XLSX_CUSTNAME = "SV Buyer";
             CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
+            CMB_USRB = "SVB-0001ba";
+            CMB_PWDB = "Xsw23edc!";
 
         }
         else if (Environment == "PROD")
@@ -88,6 +92,14 @@ public class CMParam
 			CMS_PWDC = CMS_PWDB;
 			FTP_USR = "anilava-epamusr01";
             FTP_PWD = "z1mYS2GX62!";
+            CMS_B_SUP_NAME = "SV Supplier 1";
+            CMS_B_TXT_CUSTNAME = "eCat CM buyer QA1";
+            CMS_B_XLS_CUSTNAME = "eCat CM buyer QA 2";
+            CMS_B_XLSX_CUSTNAME = "TESTCUSTCDO 1";
+            CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
+            CMS_C_SUP_NAME = CMS_B_SUP_NAME;
+            CMB_USRB = "EPAM_TC-0001";
+            CMB_PWDB = "xsw23edc";
 
 
         }

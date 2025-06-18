@@ -12,6 +12,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using static Microsoft.Playwright.Assertions;
 using System.Diagnostics;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 
 
 
@@ -107,6 +108,7 @@ public class CMom : CMParam
 
     public static async Task LoadDom()
     {
+        await DelayMS(500);
         await WaitLoad("load");
         await DelayMS(500);
         await WaitLoad("dom");
@@ -189,6 +191,27 @@ public class CMom : CMParam
         await CatchTBNErr(CMParam.PORTAL_MAIN);
         await CatchStackTrace();
     }
+    public static async Task HomeDash(string co)
+    {
+        Console.WriteLine("Go to home page of CM");
+        string URL = "";
+        switch (co.ToLower())
+        {
+            case ("s"): 
+                URL = CMS_CATALOG_HOME; 
+                break;
+            case ("b"):
+                URL = CMB_CATALOG_HOME;
+                break;
+            default:
+                throw new Exception("Invalid company type ( s/b )");
+                break;
+        }
+        await tp.GotoAsync(URL, new() { Timeout = 60000 });
+        await CatchStackTrace();
+        await DelayS(2);
+    }
+
 
     public static async Task CustFilter(string custName, string custId)
     {
@@ -435,6 +458,39 @@ public class CMom : CMParam
         else
         {
             return false;
+        }
+    }
+    public static async Task CMSDownload(string blocId, string linkName, string nameOFile, string dlTime)
+    {
+        var bloc = tp.Locator($"id={blocId}");
+        string metaId = await GetMetaId(blocId);
+        await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+        await CatchStackTrace();
+        await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
+        await DelayS(5);
+        await bloc.GetByText("Download Template", new() { Exact = true }).ClickAsync();
+        await DelayS(5);
+        ILocator dlList = tp.Locator($"//*[@id=\"{metaId}_DownloadFilesContent\"]");
+        int listRows = await dlList.Locator("li").CountAsync();
+        string[] dlItems = new string[listRows];
+        string[] dlTimes = new string[listRows];
+        //Read DL list + time
+        for (int i = 0; i < listRows; i++)
+        {
+            dlItems[i] = await dlList.Locator("li").Nth(i).InnerTextAsync();
+            Console.WriteLine(dlItems[i]);
+            //Strip the time for the whole string
+            dlTimes[i] = Regex.Match(dlItems[i], @"\([^)]+\)").Value;
+            if (dlItems[i].Contains(linkName) && IsLater(dlTime, dlTimes[i]))
+            {
+                var waitForDownload = tp.WaitForDownloadAsync();
+                await dlList.GetByText(linkName).Nth(i).ClickAsync(); //*[@id="63045_DownloadFilesContent"]/li[1]/a
+                var download = await waitForDownload;
+                var fileName = DL_PATH + nameOFile;//"TC268233_CMS_CATALOG_DOWNLOAD.zip";
+                Console.WriteLine("Filed download as " + fileName);
+                await download.SaveAsAsync(fileName);
+                break;
+            }
         }
     }
 }
