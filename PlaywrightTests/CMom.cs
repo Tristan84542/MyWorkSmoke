@@ -13,29 +13,36 @@ using System.Diagnostics.CodeAnalysis;
 using static Microsoft.Playwright.Assertions;
 using System.Diagnostics;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using ClosedXML.Excel;
 
 
 
 namespace PlaywrightTests;
 
-public class CMom : CMParam
+public abstract class CMom : CMParam
 {
-    public static IPlaywright? pw;
-    public static IBrowser? browser;
-    public static IBrowserContext? context;
-    public static IPage? tp;
-    public static int dfTimeout;
-    public static string environment;
+    protected IPlaywright pw;
+    protected IBrowser browser;
+    protected IBrowserContext context;
+    protected IPage tp;
+
+    [OneTimeSetUp]
+    public void ReadRunnerSettings()
+    {
+        CMCoordinator.WaitForStage(0);
+        environment = TestContext.Parameters.Get("Environment", "QA");
+        browserName = TestContext.Parameters.Get("BrowserName", "chromium");
+        headless = TestContext.Parameters.Get("Headless", false);
+        channel = TestContext.Parameters.Get("Channel", "chrome");
+        debugMode = TestContext.Parameters.Get("DebugMode", false);
+        //Initialize CMParams
+        InitParam(environment);
+    }
 
     [SetUp]
-    public static async Task CMInit()
+    public async Task CMInit()
     {
-        environment = TestContext.Parameters.Get("Environment", "QA");
-        string browserName = TestContext.Parameters.Get("BrowserName", "chromium");
-        Boolean headless = TestContext.Parameters.Get("Headless", false);
-        string channel = TestContext.Parameters.Get("Channel", "chrome");
         dfTimeout = TestContext.Parameters.Get("Timeout", 60000);
-
         //Create playwright
         pw = await Playwright.CreateAsync();
         var launchOptions = new BrowserTypeLaunchOptions
@@ -62,26 +69,26 @@ public class CMom : CMParam
         context = await browser.NewContextAsync(new() { ViewportSize = new ViewportSize() { Width = 1600, Height = 1000} });
         tp = await context.NewPageAsync();
 
-        //Initialize CMParams
-        InitParam(environment);
+        //return (pw, browser, context, tp);
+        
     }
 
     [TearDown]
-    public static async Task TearDown()
+    public async Task TearDown()
     {
         await context.CloseAsync();
         await browser.CloseAsync();
         pw.Dispose();
     }
 
-    public static async Task<string> GetMonTime()
+    public async Task<string> GetMonTime()
     {
         DateTime now = DateTime.Now.AddMinutes(-1); //Minus current time by 1 minute
         string val = now.ToString("dd/MM/yyyy (HH:mm)");
         return val;
     }
 
-    public static async Task<string> GetDLTime(string CMX)
+    public async Task<string> GetDLTime(string CMX)
     {
         DateTime now = DateTime.Now.AddMinutes(-1);
         if (CMX.ToLower() == "b")
@@ -97,23 +104,23 @@ public class CMom : CMParam
             throw new Exception("Invalid CM designation (b/s)");
         }
     }
-    public static async Task DelayMS (int ms)
+    public async Task DelayMS (int ms)
     {
         await tp.WaitForTimeoutAsync(ms);
     }
-    public static async Task DelayS (int s)
+    public async Task DelayS (int s)
     {
         await tp.WaitForTimeoutAsync(s * 1000);
     }
 
-    public static async Task LoadDom()
+    public async Task LoadDom()
     {
         await DelayMS(500);
         await WaitLoad("load");
         await DelayMS(500);
         await WaitLoad("dom");
     }
-    public static async Task WaitLoad(string state)
+    public async Task WaitLoad(string state)
     {
         switch (state.ToLower())
         {
@@ -131,7 +138,7 @@ public class CMom : CMParam
                 break;
         }
     }
-    public static async Task CatchTBNErr(string url)
+    public async Task CatchTBNErr(string url)
     {
         try
         {
@@ -146,7 +153,7 @@ public class CMom : CMParam
             }
         }
     }
-    public static async Task CatchStackTrace()
+    public async Task CatchStackTrace()
     {
         int stCnt = await tp.GetByText("StackTrace").CountAsync();
         if (stCnt > 0)
@@ -155,7 +162,7 @@ public class CMom : CMParam
             await tp.ReloadAsync();
         }        
     }
-    public static async Task<bool> ReloadIfBackdrop()
+    public async Task<bool> ReloadIfBackdrop()
     {
         int bdCnt = await tp.Locator("div[class*='backdrop']").CountAsync();
         string loadStyle = await tp.Locator("//*[@id=\"loadingScreen\"]").GetAttributeAsync("style") ?? "";
@@ -172,11 +179,11 @@ public class CMom : CMParam
         }
     }
 
-    public static async Task LogIn(string username, string password)
+    public async Task LogIn(string username, string password)
     {
         await LogIn(CMParam.PORTAL_LOGIN, username, password);
     }
-    public static async Task LogIn(string portal, string username, string password)
+    public async Task LogIn(string portal, string username, string password)
     {
         await tp.GotoAsync(portal);
         await WaitLoad("load");
@@ -191,7 +198,7 @@ public class CMom : CMParam
         await CatchTBNErr(CMParam.PORTAL_MAIN);
         await CatchStackTrace();
     }
-    public static async Task HomeDash(string co)
+    public async Task HomeDash(string co)
     {
         Console.WriteLine("Go to home page of CM");
         string URL = "";
@@ -205,7 +212,6 @@ public class CMom : CMParam
                 break;
             default:
                 throw new Exception("Invalid company type ( s/b )");
-                break;
         }
         await tp.GotoAsync(URL, new() { Timeout = 60000 });
         await CatchStackTrace();
@@ -213,7 +219,7 @@ public class CMom : CMParam
     }
 
 
-    public static async Task CustFilter(string custName, string custId)
+    public async Task CustFilter(string custName, string custId)
     {
         ILocator panel = tp.Locator("//*[@id=\"searchformWrapper\"]");
         await panel.Locator("//*[@id=\"uiCustomerName\"]").FillAsync(custName);
@@ -228,7 +234,7 @@ public class CMom : CMParam
     }
 
     //Universal find the block id of a customer / supplier by name
-    public static async Task<string> FindCatalog(string name)
+    public async Task<string> FindCatalog(string name)
     {
         string path = $"//strong[normalize-space(text())='{name}']/ancestor::div[@id][1]";
         var target = tp.Locator($"xpath={path}");
@@ -241,7 +247,7 @@ public class CMom : CMParam
         Console.WriteLine($"Block id {id}" );
         return id;
     }
-    public static async Task<string> GetMetaId(string id)
+    public async Task<string> GetMetaId(string id)
     {
         Match match = Regex.Match(id, @"\d+");
         Console.WriteLine($"MetaCat Id: {match}");
@@ -253,7 +259,7 @@ public class CMom : CMParam
             throw new Exception($"Cannot find MetacatId from {match.Value}");
         }
     }
-    public static async Task CMSUploadFile (string custName, string[] file, string[] type)
+    public async Task CMSUploadFile (string custName, string[] file, string[] type)
     {
         var blocId = await FindCatalog (custName);
         var bloc = tp.Locator($"id={blocId}");
@@ -285,7 +291,7 @@ public class CMom : CMParam
         await WaitLoad("dom");
         
     }
-    public static async Task MonProcesses(string url, CMProcess[] tProc)
+    public async Task MonProcesses(string url, CMProcess[] tProc)
     {
         await tp.GotoAsync(url); //Go to monitor page
         await CatchStackTrace();
@@ -429,7 +435,7 @@ public class CMom : CMParam
             Console.WriteLine($"Some process did not complete as required in {monDuration}min");
         }    
     }
-    public static async Task<CMProcess[]> ReadMainRow(int rows)
+    public async Task<CMProcess[]> ReadMainRow(int rows)
     {
         CMProcess[] procMainRow = new CMProcess[rows];
         ILocator mainRow = tp.Locator("//*[@id=\"itemListContainer\"]").Locator("tr[id^='mainRow-']");
@@ -460,7 +466,7 @@ public class CMom : CMParam
             return false;
         }
     }
-    public static async Task CMSDownload(string blocId, string linkName, string nameOFile, string dlTime)
+    public async Task CMSDownload(string blocId, string linkName, string nameOFile, string dlTime)
     {
         var bloc = tp.Locator($"id={blocId}");
         string metaId = await GetMetaId(blocId);
@@ -493,4 +499,42 @@ public class CMom : CMParam
             }
         }
     }
+    /// <summary>
+    /// Updates the value of a specific cell in a given worksheet of an XLSX file.
+    /// </summary>
+    /// <param name="file">Name of the xlsx file</param>
+    /// <param name="sheetName">Name of the worksheet</param>
+    /// <param name="cellAddress">Cell address (e.g., "B2")</param>
+    /// <param name="newValue">New value to set</param>
+    public static void UpdateExcel(string file, string sheet, string cell, string newValue)
+    {
+        try
+        {
+            using (var workbook = new XLWorkbook(FILE_PATH + file))
+            {
+                var worksheet = workbook.Worksheet(sheet);
+                if (worksheet == null)
+                {
+                    throw new ArgumentException($"Worksheet {sheet} not found");
+                }
+                worksheet.Cell(cell).Value = newValue;
+                workbook.Save();
+            }
+            Console.WriteLine($"Cell {cell} in {sheet} is updated to {newValue}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating cell: {ex.Message}");
+        }
+
+    }
+    public async Task FilterSup(string supplierName)
+    {
+        //Filter spplier by name
+        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(supplierName);
+        await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+    }
+
 }

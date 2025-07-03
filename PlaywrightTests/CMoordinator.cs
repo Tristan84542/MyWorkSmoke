@@ -6,9 +6,8 @@ using System.Threading.Tasks;
 
 namespace PlaywrightTests
 {
-    public static class CMCoordinator
+    public class CMCoordinator : CMParam
     {
-        private static int currentStage = 1;
 
         public static void WaitForStage(int stage)
         {

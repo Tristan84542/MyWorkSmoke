@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml.Math;
 using NUnit.Framework;
 namespace PlaywrightTests;
 
@@ -14,9 +15,12 @@ internal class CMTestInstanceA : CMom
     [OneTimeSetUp]
     public void InstanceAOTS()
     {
-        CMCoordinator.WaitForStage(1);
-        //... setup code here
-        CMCoordinator.StageDone();
+        if (!debugMode)
+        {
+            CMCoordinator.WaitForStage(1);
+            //... setup code here
+            CMCoordinator.StageDone();
+        }
     }
     //Parallel Test instance specific for FTP upload test
     [Test, Order(1)]

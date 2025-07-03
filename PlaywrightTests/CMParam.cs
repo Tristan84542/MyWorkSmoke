@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml;
 using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
 using UglyToad.PdfPig.Tokens;
@@ -11,6 +12,17 @@ namespace PlaywrightTests;
 
 public class CMParam
 {
+    //Test runner settings param
+    public bool debugMode;
+    public static string browserName;
+    public static string channel;
+    public static int dfTimeout;
+    public static string environment;
+    public static bool headless;
+
+    //One time setup param
+    public static int currentStage = 0;
+
     public static string testDate;
     public static string PORTAL_URL; //(https://portal.hubwoo.com for prod)
     public static string PORTAL_LOGIN;
@@ -92,9 +104,9 @@ public class CMParam
 			CMS_PWDC = CMS_PWDB;
 			FTP_USR = "anilava-epamusr01";
             FTP_PWD = "z1mYS2GX62!";
-            CMS_B_SUP_NAME = "SV Supplier 1";
-            CMS_B_TXT_CUSTNAME = "eCat CM buyer QA1";
-            CMS_B_XLS_CUSTNAME = "eCat CM buyer QA 2";
+            CMS_B_SUP_NAME = "TESTSUPCDO2";
+            CMS_B_TXT_CUSTNAME = "TESTCUSTCDO 6 Customer Classification";
+            CMS_B_XLS_CUSTNAME = "TESTCUSTCDO 7";
             CMS_B_XLSX_CUSTNAME = "TESTCUSTCDO 1";
             CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
