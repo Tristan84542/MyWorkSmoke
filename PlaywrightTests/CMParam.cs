@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Microsoft.Playwright;
 using Microsoft.Playwright.NUnit;
 using UglyToad.PdfPig.Tokens;
@@ -17,13 +18,14 @@ public class CMParam
     public static string browserName;
     public static string channel;
     public static int dfTimeout;
-    public static string environment;
+    public static string ENVIRONMENT;
     public static bool headless;
 
     //One time setup param
     public static int currentStage = 0;
 
     public static string testDate;
+    public static string testDateTime;
     public static string PORTAL_URL; //(https://portal.hubwoo.com for prod)
     public static string PORTAL_LOGIN;
     public static string PORTAL_LOGOUT;
@@ -32,6 +34,9 @@ public class CMParam
     public static string CMS_CATALOG_MONITOR;
     public static string CMB_CATALOG_HOME;
     public static string CMB_CATALOG_MONITOR;
+    public static string CMB_CATALOG_DL;
+    public static string CMB_CATALOG_EDITUSER;
+    public static string CMB_CUST_LANDING;
 
 	public static string CMS_USRA; //cms user for instance A
 	public static string CMS_PWDA; //cms pwd for instance A
@@ -43,6 +48,13 @@ public class CMParam
     public static string CMS_B_XLSX_CUSTNAME;
     public static string CMS_C_CUSTNAME;
     public static string CMS_C_SUP_NAME;
+    public static string intCatSup_C;
+    public static string custName_C;
+    public static string userName_C = "";
+    public static string password_C = "";
+    public static string viewURL_C;
+    public static string fileName_C = "Catalog_scf_IntCatalog.xlsx";
+
 
     public static string CMS_B_TXT_CUSTID;
     public static string CMS_B_XLS_CUSTID;
@@ -53,6 +65,8 @@ public class CMParam
     
     public static string CMS_USRC; //cms user for instance C
 	public static string CMS_PWDC; //cms pwd for instance C
+
+
 
 	public static string FTP_USR; //ftp login username
     public static string FTP_PWD; //ftp login pwd
@@ -74,6 +88,16 @@ public class CMParam
             subFolderRoot = dir.Substring(0, start);
         }
         testDate = DateTime.Today.ToString("yyyyMMdd");
+        testDateTime = DateTime.Now.ToString("yyyyMMddHHmm");
+
+        FILE_PATH = System.IO.Path.Combine(subFolderRoot, $@"PlaywrightTests\CMB\{Environment}\");
+        DL_PATH = System.IO.Path.Combine(dir, $@"RESULT\{Environment}\{testDate}\");
+        TXT_FILE = "Catalog_scf_TXT.zip";
+        XLS_FILE = "Catalog_scf_XLS.xls";
+        XLSX_FILE = "Catalog_scf_XLSX.xlsx";
+        ATTACHMENT_FILE = "baseAttachmentUpload.zip";
+        CRS_FILE = "Catalog_scf_CRS.xlsx";
+
         if (Environment == "QA")
         {
             PORTAL_URL = "https://portal.qa.hubwoo.com";
@@ -91,6 +115,12 @@ public class CMParam
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
             CMB_USRB = "SVB-0001ba";
             CMB_PWDB = "Xsw23edc!";
+            intCatSup_C = "LenaSupplier1";
+            custName_C = "SV Buyer";
+            userName_C = "SVB-0001ba";
+            password_C = "Xsw23edc!";
+            viewURL_C = "https://search.qa.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=SVVIEW1&VIEW_PASSWD=q0E2Aft3PQy18&USER_ID=SV&BRANDING=search5&LANGUAGE=EN&HOOK_URL=https://portal.qa.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp&ADMIN=1&COUNTRY=GB&EASYORDER=1";
+            CMom.UpdateExcel(fileName_C, "Data 1", "F3", $"Smoke Internal Catalog 001 {testDateTime}");
 
         }
         else if (Environment == "PROD")
@@ -112,17 +142,15 @@ public class CMParam
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
             CMB_USRB = "EPAM_TC-0001";
             CMB_PWDB = "xsw23edc";
+            intCatSup_C = "TESTSUPCDO9";
+            custName_C = "TESTCUSTCDO 1";
+            userName_C = "EPAM_TC-0001";
+            password_C = "xsw23edc";
+            viewURL_C = "https://newui.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=TESTCOE05-05&VIEW_PASSWD=t3S4TcKp89Rqy&USER_ID=HUBWOO&LANGUAGE=EN&COUNTRY=GB&EASYORDER=1&BRANDING=search5&HOOK_URL=https://newui.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp";
+            CMom.UpdateExcel(fileName_C, "Data 1", "C3", $"Smoke Internal Catalog 001 {testDateTime}");
 
 
         }
-        FILE_PATH = System.IO.Path.Combine(subFolderRoot, $@"PlaywrightTests\CMB\{Environment}\");
-        DL_PATH = System.IO.Path.Combine(dir, $@"RESULT\{Environment}\{testDate}\");
-        TXT_FILE = "Catalog_scf_TXT.zip";
-        XLS_FILE = "Catalog_scf_XLS.xls";
-        XLSX_FILE = "Catalog_scf_XLSX.xlsx";
-        ATTACHMENT_FILE = "baseAttachmentUpload.zip";
-        CRS_FILE = "Catalog_scf_CRS.xlsx";
-
         PORTAL_LOGIN = PORTAL_URL + "/auth/login?ReturnUrl=%2Fmain%2F";
         PORTAL_LOGOUT = PORTAL_URL + "/srvs/login/logout";
         PORTAL_MAIN = PORTAL_URL + "/main/";
@@ -130,6 +158,9 @@ public class CMParam
         CMS_CATALOG_MONITOR = PORTAL_URL + "/srvs/CatalogManager/monitor/MonitorSupplier";
         CMB_CATALOG_HOME = PORTAL_URL + "/srvs/BuyerCatalogs";
         CMB_CATALOG_MONITOR = PORTAL_URL + "/srvs/BuyerCatalogs/monitor/MonitorBuyer";
+        CMB_CATALOG_DL = PORTAL_URL + "/srvs/BuyerCatalogs/export/index";
+        CMB_CATALOG_EDITUSER = PORTAL_URL + "/srvs/omnicontent/BuyerManageUsers.aspx";
+        CMB_CUST_LANDING = PORTAL_URL + "/srvs/BuyerCatalogs/admin/LandingPage";
     }
 
 }

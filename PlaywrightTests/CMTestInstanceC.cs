@@ -24,95 +24,78 @@ namespace PlaywrightTests;
 
 internal class CMTestInstanceC : CMom
 {
+    
     private static bool crsPassed = false;
     private static bool TC274456Passed = false;
-    private static string testDateTime;
-
-    private string intCatSup;
-    private string custName;
-    private string userName = "";
-    private string password = "";
-    private string viewURL;
-    private string fileName = "Catalog_scf_IntCatalog.xlsx";
-    
-
-    [OneTimeSetUp]
-    public void InstanceCOTS()
-    {
-        DateTime now = DateTime.Now;
-        testDateTime = now.ToString("yyyymmddHHmm");
-
-        if (!debugMode)
-        {
-            CMCoordinator.WaitForStage(3);
-            const string path = "TC268234_Passed.flag";
-            int waited = 0;
-            while (!File.Exists(path) && waited < 20)
-            {
-                Thread.Sleep(60000);
-                waited++;
-            }
-            if (!File.Exists(path))
-            {
-                throw new Exception("TC268234 is not completed within 20 min");
-            }
-            CMCoordinator.StageDone();
-        }
-
-        if (environment == "QA")
-        {
-            intCatSup = "LenaSupplier1";
-            custName = "SV Buyer";
-            userName = "SVB-0001ba";
-            password = "Xsw23edc!";
-            viewURL = "https://search.qa.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=SVVIEW1&VIEW_PASSWD=q0E2Aft3PQy18&USER_ID=SV&BRANDING=search5&LANGUAGE=EN&HOOK_URL=https://portal.qa.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp&ADMIN=1&COUNTRY=GB&EASYORDER=1";
-            UpdateExcel(fileName, "Data 1", "F3", $"Smoke Internal Catalog 001 {testDateTime}");
-
-        }
-        else if (environment == "PROD")
-        {
-            intCatSup = "TESTSUPCDO9";
-            custName = "TESTCUSTCDO 1";
-            userName = "EPAM_TC-0001";
-            password = "xsw23edc";
-            viewURL = "https://newui.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=TESTCOE05-05&VIEW_PASSWD=t3S4TcKp89Rqy&USER_ID=HUBWOO&LANGUAGE=EN&COUNTRY=GB&EASYORDER=1&BRANDING=search5&HOOK_URL=https://newui.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp";
-            UpdateExcel(fileName, "Data 1", "C3", $"Smoke Internal Catalog 001 {testDateTime}");
-        }
-        else
-        {
-            throw new Exception("Check runner Environment value");
-        }
-    }
-
     [Test, Order(1)]
-    [Category("CMS Test")]
-    public async Task TC268237_CMS_CATALOG_ITEM_N_REPORT()
+    [Category("CMBA Test")]
+    public async Task TC274466_CMBA_CREATE_EDIT_USER()
     {
-        string startTime = await GetMonTime();
-        string dlTime = await GetDLTime("s");
-        await LogIn(CMS_USRA, CMS_PWDA);
-        await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
-        await CatchStackTrace();
-        var blocId = await FindCatalog(CMS_C_CUSTNAME);
-        var blocLoc = tp.Locator($"id={blocId}");
-        string metaId = await GetMetaId(blocId);
-        await blocLoc.GetByText("Show Items").ClickAsync();
-        await LoadDom();
-        await CatchStackTrace();
-        string url = tp.Url;
-        Assert.That(url, Does.Contain("CatalogManager/supplier/item-list"), $"Expect to be in item list but landed to {url}");
-        await DelayS(5);
-        await tp.Locator("//*[@id=\"ddlCatalogVersion\"]").SelectOptionAsync("CUS_RELEASED");
+        string userSufix = testDateTime;
+        await LogIn(CMB_USRB, CMB_PWDB);
+        await tp.GotoAsync(CMB_CATALOG_EDITUSER);
         await LoadDom();
         await DelayS(5);
-        await tp.Locator("//*[@id=\"uiDownloadReport\"]").ClickAsync();
-        CMProcess[] catalogDL =
-            [
-                new CMProcess("", "Catalog Download Job", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Finished OK")
-            ];
-        await MonProcesses(CMS_CATALOG_MONITOR, catalogDL);
-        await CMSDownload(blocId, "Catalog Download Job", "TC268237_CMS_CATALOG_ITEM_N_REPORT.zip", dlTime);
+        string newUser = "";
+        switch (ENVIRONMENT.ToLower())
+        {
+            case "prod":
+                newUser = "PROD" + userSufix; break;
+            case "qa":
+                newUser = "QA" + userSufix; break;
+            default:
+                throw new ArgumentException($"Invalid environment argument {ENVIRONMENT}");
+        }
+        await tp.GetByText("Add new User", new PageGetByTextOptions { Exact = true }).ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        await tp.Locator("#ctl00_MainContent_TextBox1").FillAsync(newUser);
+        await tp.Locator("#ctl00_MainContent_TextBox2").FillAsync(newUser);//first name
+        await tp.Locator("#ctl00_MainContent_TextBox3").FillAsync("userLast");//last name
+        await tp.Locator("#ctl00_MainContent_TextBox4").FillAsync($"omnicontent+{newUser}@gmail.com");//email
+        await tp.Locator("#ctl00_MainContent_TextBox5").FillAsync($"{newUser}!");//password
+        await tp.Locator("#ctl00_MainContent_TextBox6").FillAsync($"{newUser}!");//password confirmation
+        await tp.GetByLabel("Buyer", new() { Exact = true }).CheckAsync();
+        await tp.GetByRole(AriaRole.Link, new() { Name = "Save" }).ClickAsync();
+        await LoadDom();
+        await DelayS(2);
+        await LogOut();
+        await NuLogin(newUser, newUser + "!");
+        await tp.Locator("top-bar-user-section[name='User']").ClickAsync();
+        await DelayS(2);
+        string userProfileName = await tp.Locator("app-topbar-section[icon='user-circle']").Locator("h3[class='topbar-user-section__user']").InnerTextAsync();
+        Assert.That(userProfileName.Contains("userLast"), "User profile do not have user last name");
+        Assert.That(userProfileName.Contains(newUser), $"User profile do not have user first name {newUser}");
+        //Close the user profile widget for log out
+        await tp.Locator("top-bar-user-section[name='User']").ClickAsync();
+        await DelayS(2);
+        await LogOut();
+        //Edit new user
+        await LogIn(CMB_USRB, CMB_PWDB);
+        await tp.GotoAsync(CMB_CATALOG_EDITUSER);
+        await LoadDom();
+        await DelayS(5);
+        //Search by login
+        await tp.Locator("//*[@id=\"ctl00_MainContent_FilterControl1_ctl00_TextBox4\"]").FillAsync(newUser);
+        await tp.Locator("//*[@id=\"ctl00_MainContent_FilterControl1_lblSearch\"]").ClickAsync();
+        await LoadDom();
+        await DelayS(2);
+        await tp.GetByRole(AriaRole.Link, new() { Name = "Edit", Exact = true }).ClickAsync();
+        await LoadDom();
+        await DelayS(2);
+        //Update last name
+        await tp.Locator("#ctl00_MainContent_TextBox3").FillAsync("LastNameEdit");//last name
+        await tp.GetByRole(AriaRole.Link, new() { Name = "Save" }).ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        await LogOut();
+        await NuLogin(newUser, newUser + "!");
+        await tp.Locator("top-bar-user-section[name='User']").ClickAsync();
+        await DelayS(2);
+        userProfileName = await tp.Locator("app-topbar-section[icon='user-circle']").Locator("h3[class='topbar-user-section__user']").InnerTextAsync();
+        Assert.That(userProfileName.Contains("LastNameEdit"), "User profile do not have user last name");
     }
+
 
     [Test, Order(2)]
     [Category("CMS Test")]
@@ -140,96 +123,58 @@ internal class CMTestInstanceC : CMom
                 new CMProcess("", "Template Export", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Finished OK")
             ];
         await MonProcesses(CMS_CATALOG_MONITOR, catExport);
-        await CMSDownload(blocId, "SCF EXPORT",  "TC268233_CMS_CATALOG_DOWNLOAD.zip", dlTime);
+        await CMSDownload(blocId, "SCF Export",  "TC268233_CMS_CATALOG_DOWNLOAD.zip", dlTime);
 
     }
-
     [Test, Order(3)]
     [Category("CMS Test")]
-    public async Task TC268236_CMS_CHECKROUTINE()
+    public async Task TC268237_CMS_CATALOG_ITEM_N_REPORT()
     {
-        crsPassed = false;
+        //This force test case to wait until the target file exist        
+        await WaitTCDone("TC268234_Done.flag");
+        
         string startTime = await GetMonTime();
-        await LogIn(CMS_USRC, CMS_PWDC);
+        string dlTime = await GetDLTime("s");
+        await LogIn(CMS_USRA, CMS_PWDA);
         await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
         await CatchStackTrace();
-        string[] file = [CRS_FILE];
-        string[] type = ["content"];
         var blocId = await FindCatalog(CMS_C_CUSTNAME);
+        var blocLoc = tp.Locator($"id={blocId}");
         string metaId = await GetMetaId(blocId);
-        var bloc = tp.Locator($"id={blocId}");
-        await CMSUploadFile(CMS_C_CUSTNAME, file, type);
-        CMProcess[] crsImport =
+        await blocLoc.GetByText("Show Items").ClickAsync();
+        await LoadDom();
+        await CatchStackTrace();
+        string url = tp.Url;
+        Assert.That(url, Does.Contain("CatalogManager/supplier/item-list"), $"Expect to be in item list but landed to {url}");
+        await DelayS(5);
+        await tp.Locator("//*[@id=\"ddlCatalogVersion\"]").SelectOptionAsync("CUS_RELEASED");
+        await LoadDom();
+        await DelayS(5);
+        await tp.Locator("//*[@id=\"uiDownloadReport\"]").ClickAsync();
+        CMProcess[] catalogDL =
             [
-                new CMProcess ("", "Simple Catalog import", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Failed")
+                new CMProcess("", "Catalog Download Job", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Finished OK")
             ];
-        await MonProcesses(CMS_CATALOG_MONITOR, crsImport);
-        //Determind which row has the correct pid
-        CMProcess[] procList = await ReadMainRow(10);
-        int matchRow = 0;
-        for (int i = 0; i < 10; i++)
-        {
-            if (procList[i].Pid == crsImport[0].Pid)
-            {
-                matchRow = i;
-                break;
-            }
-        }
-        //Click the Error correction link and open error correction chevron
-        try
-        {
-            await tp.Locator("//*[@id=\"itemListContainer\"]").Locator("tr[id^='detail-']").Nth(matchRow).GetByText("Error Correction").ClickAsync();
-            await CatchStackTrace();
-        }
-        catch (TimeoutException te)
-        {
-            Console.WriteLine($"Failed to open error correction chevron, do it manually! {te}");
-            await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
-            await CatchStackTrace();
-            await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
-            await DelayS(5);
-            await bloc.Locator("//a[@data-toggle='tab' and contains(normalize-space(text()), 'Error Correction')]").ClickAsync();
-        }
-        await DelayS(5);
-        //Open Item view
-        await tp.Locator($"//*[@id=\"{metaId}_ErrorReportItemsContent\"]").Locator("a[onclick^='showItemViewWithLoading']").ClickAsync();
-        await LoadDom();
-        await DelayS(2);
-        int iVRows = await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").CountAsync();
-        //Update correction value
-        for (int j = 0; j < iVRows; j++)
-        {
-            string corValue = await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").Nth(j).Locator("td").Nth(1).InnerTextAsync() + " " + testDate;
-            //*[@id="63045_itemViewDetails"]/tr[1]/td[5]/input[1]
-            await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").Nth(j).Locator("td").Nth(4).Locator("input").Nth(0).FillAsync(corValue);
-        }
-        await DelayS(5);
-        await tp.Locator($"//*[@id=\"{metaId}_saveAllItemViewDetails\"]").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
-        //Revalidate catalog
-        if (await ReloadIfBackdrop())
-        {
-            await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
-            await DelayS(5);
-            await bloc.Locator("//a[@data-toggle='tab' and contains(normalize-space(text()), 'Error Correction')]").ClickAsync();
-        }
-        await tp.Locator($"//*[@id=\"{metaId}_btnRevalidate\"]").ClickAsync();
-        await WaitLoad("load");
-        await WaitLoad("dom");
-        crsImport[0].State = "Finished OK";
-        await MonProcesses(CMS_CATALOG_MONITOR, crsImport);
-        crsPassed = true;
+        await MonProcesses(CMS_CATALOG_MONITOR, catalogDL);
+        await CMSDownload(blocId, "Catalog Download Job", "TC268237_CMS_CATALOG_ITEM_N_REPORT.zip", dlTime);
     }
-
     [Test, Order(4)]
-    [Category ("CMS Test")]
+    [Category("CMS Test")]
     public async Task TC268235_CMS_DIFFINGREPORT()
     {
-        Assume.That(crsPassed, "SKip test because TC268236_CMS_CHECKROUTINE not pass");
+        await WaitTCDone("TC268234_Passed.flag");
         string startTime = await GetMonTime();
         string dlTime = await GetDLTime("s");
         await LogIn(CMS_USRC, CMS_PWDC);
+        await HomeDash("s");
+        string[] uFile = ["Catalog_scf_XLSX_u.xlsx"];
+        string[] utype = ["content"];
+        await CMSUploadFile(CMS_B_XLSX_CUSTNAME, uFile, utype);
+        CMProcess[] uCatImport =
+            [
+                new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
+            ];
+        await MonProcesses(CMS_CATALOG_MONITOR, uCatImport);
         await HomeDash("s");
         var blocId = await FindCatalog(CMS_C_CUSTNAME); //*[@id="(63045)_catalog"]/div/div[1]/a
         var bloc = tp.Locator($"id={blocId}");
@@ -247,8 +192,8 @@ internal class CMTestInstanceC : CMom
         //Define reference mainrow value
         string[,] refMain = new string[,]
         {
-            {"11-015.5000",  $"11-015.5000 {testDate}", "Changed", "1"},
-            {"11-015.9025", $"11-015.9025 {testDate}", "Changed", "1" }
+            {"11-015.5000",  "Methylenchlorid 134", "Changed", "1"},
+            {"11-015.9025", "321", "Changed", "4" }
         };
         //Read in actual main row then compare
         //Make sure main row equal to reference value
@@ -267,8 +212,8 @@ internal class CMTestInstanceC : CMom
                     refMain[i, 1] == shortDesc &&
                     refMain[i, 2] == state &&
                     refMain[i, 3] == fields
-                    ) 
-                { 
+                    )
+                {
                     matchRow++;
                     break;
                 }
@@ -302,15 +247,101 @@ internal class CMTestInstanceC : CMom
     }
 
     [Test, Order(5)]
+    [Category("CMS Test")]
+    public async Task TC268236_CMS_CHECKROUTINE()
+    {
+        try
+        {
+            string startTime = await GetMonTime();
+            await LogIn(CMS_USRC, CMS_PWDC);
+            await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+            await CatchStackTrace();
+            string[] file = [CRS_FILE];
+            string[] type = ["content"];
+            var blocId = await FindCatalog(CMS_C_CUSTNAME);
+            string metaId = await GetMetaId(blocId);
+            var bloc = tp.Locator($"id={blocId}");
+            await CMSUploadFile(CMS_C_CUSTNAME, file, type);
+            CMProcess[] crsImport =
+                [
+                    new CMProcess ("", "Simple Catalog import", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Failed")
+                ];
+            await MonProcesses(CMS_CATALOG_MONITOR, crsImport);
+            //Determind which row has the correct pid
+            CMProcess[] procList = await ReadMainRow(10);
+            int matchRow = 0;
+            for (int i = 0; i < 10; i++)
+            {
+                if (procList[i].Pid == crsImport[0].Pid)
+                {
+                    matchRow = i;
+                    break;
+                }
+            }
+            //Click the Error correction link and open error correction chevron
+            try
+            {
+                await tp.Locator("//*[@id=\"itemListContainer\"]").Locator("tr[id^='detail-']").Nth(matchRow).GetByText("Error Correction").ClickAsync();
+                await CatchStackTrace();
+            }
+            catch (TimeoutException te)
+            {
+                Console.WriteLine($"Failed to open error correction chevron, do it manually! {te}");
+                await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+                await CatchStackTrace();
+                await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
+                await DelayS(5);
+                await bloc.Locator("//a[@data-toggle='tab' and contains(normalize-space(text()), 'Error Correction')]").ClickAsync();
+            }
+            await DelayS(5);
+            //Open Item view
+            await tp.Locator($"//*[@id=\"{metaId}_ErrorReportItemsContent\"]").Locator("a[onclick^='showItemViewWithLoading']").ClickAsync();
+            await LoadDom();
+            await DelayS(2);
+            int iVRows = await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").CountAsync();
+            //Update correction value
+            for (int j = 0; j < iVRows; j++)
+            {
+                string corValue = await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").Nth(j).Locator("td").Nth(1).InnerTextAsync() + " " + testDate;
+                //*[@id="63045_itemViewDetails"]/tr[1]/td[5]/input[1]
+                await tp.Locator($"//*[@id=\"{metaId}_itemViewDetails\"]").Locator("tr").Nth(j).Locator("td").Nth(4).Locator("input").Nth(0).FillAsync(corValue);
+            }
+            await DelayS(5);
+            await tp.Locator($"//*[@id=\"{metaId}_saveAllItemViewDetails\"]").ClickAsync();
+            await LoadDom();
+            await DelayS(5);
+            //Revalidate catalog
+            if (await ReloadIfBackdrop())
+            {
+                await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
+                await DelayS(5);
+                await bloc.Locator("//a[@data-toggle='tab' and contains(normalize-space(text()), 'Error Correction')]").ClickAsync();
+            }
+            await tp.Locator($"//*[@id=\"{metaId}_btnRevalidate\"]").ClickAsync();
+            await WaitLoad("load");
+            await WaitLoad("dom");
+            crsImport[0].State = "Finished OK";
+            await MonProcesses(CMS_CATALOG_MONITOR, crsImport);
+            crsPassed = true;
+        }
+        finally
+        {
+            File.WriteAllText("TC268236_Done.flag", "DONE");
+        }
+        
+        
+    }
+
+    [Test, Order(6)]
     [Category ("CMB Test")]
     public async Task TC274456_CMB_IMPORT_RELEASE_CATALOG()
     {
         
 
         string startTime = await GetMonTime();
-        await LogIn(userName, password);
+        await LogIn(userName_C, password_C);
         await HomeDash("b");
-        var blocId = await FindCatalog(intCatSup);
+        var blocId = await FindCatalog(intCatSup_C);
         var metaId = await GetMetaId(blocId);
         var blocLoc = tp.Locator($"id={blocId}");//CSS selector
         //Upload file
@@ -320,9 +351,9 @@ internal class CMTestInstanceC : CMom
         await DelayS(2);
         Console.WriteLine("To upload catalog file");
         await tp.Locator($"[id=\"uiFileSelect\"]").SetInputFilesAsync(
-            new[] { FILE_PATH + fileName });
+            new[] { FILE_PATH + fileName_C });
         await DelayMS(500);
-        await tp.Locator($"//*[@id=\"{fileName}_selectType\"]").SelectOptionAsync("content");
+        await tp.Locator($"//*[@id=\"{fileName_C}_selectType\"]").SelectOptionAsync("content");
         await DelayMS(500);
         await uploadPop.GetByText("Process Files").ClickAsync();
         await DelayMS(500);
@@ -330,16 +361,16 @@ internal class CMTestInstanceC : CMom
         await DelayS(5);
         CMProcess[] catImport =
             [
-                new CMProcess("", "Simple Catalog import", startTime, intCatSup, custName, "Finished OK")
+                new CMProcess("", "Simple Catalog import", startTime, intCatSup_C, custName_C, "Finished OK")
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, catImport);
         CMProcess[] releaseCatalog =
             [
-                new CMProcess("", "Release catalog", startTime, intCatSup, custName, "Finished OK")
+                new CMProcess("", "Release catalog", startTime, intCatSup_C, custName_C, "Finished OK")
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, releaseCatalog);
         await HomeDash("b");
-        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(intCatSup);
+        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(intCatSup_C);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
         await LoadDom();
         await DelayS(5);
@@ -357,7 +388,7 @@ internal class CMTestInstanceC : CMom
         await ReloadIfBackdrop();
         CMProcess[] loadCat =
             [
-                new CMProcess("", "Load Catalog", startTime, intCatSup, custName, "Finished OK"),
+                new CMProcess("", "Load Catalog", startTime, intCatSup_C, custName_C, "Finished OK"),
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, loadCat);
         await HomeDash("b");
@@ -399,14 +430,14 @@ internal class CMTestInstanceC : CMom
         await LoadDom();
         CMProcess[] setLive =
             [
-                new CMProcess("", "Set Live", startTime, intCatSup, custName, "Finished OK"),
+                new CMProcess("", "Set Live", startTime, intCatSup_C, custName_C, "Finished OK"),
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, setLive);
 
         //Access search now
         Console.WriteLine("Wait 1 min before check on search");
         await DelayS(60);
-        await tp.GotoAsync(viewURL);
+        await tp.GotoAsync(viewURL_C);
         await LoadDom();
         await DelayS(5);
         await tp.Locator("//*[@id=\"termAuto\"]").FillAsync(testDateTime);
@@ -420,19 +451,17 @@ internal class CMTestInstanceC : CMom
         TC274456Passed = true;
     }
 
-    [Test, Order(6)]
+    [Test, Order(7)]
     [Category ("CMB Test")]
     public async Task TC274460_CMB_ARCHIVE_RESTORE()
     {
-        Assert.That(TC274456Passed == true, "TC274456_CMB_IMPORT_RELEASE_CATALOG failed, skip testing to avoid run out of available catalog");
+        Assume.That(TC274456Passed == true, "TC274456_CMB_IMPORT_RELEASE_CATALOG failed, skip testing to avoid run out of available catalog");
         string startTime = await GetMonTime();
-        await LogIn(userName, password);
+        await LogIn(userName_C, password_C);
         await HomeDash("b");
-        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(intCatSup);
-        await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
-        var blocId = await FindCatalog(intCatSup);
+        await FilterSup(intCatSup_C);
+        
+        var blocId = await FindCatalog(intCatSup_C);
         var metaId = await GetMetaId(blocId);
         var blocLoc = tp.Locator($"id={blocId}");//CSS selector
         await blocLoc.Locator("div[class='settings']").ClickAsync();
@@ -473,12 +502,12 @@ internal class CMTestInstanceC : CMom
         //User is redirected to monitor page already
         CMProcess[] archive =
             [
-                new CMProcess("", "Archive job", startTime, intCatSup, custName, "Finished OK")
+                new CMProcess("", "Archive job", startTime, intCatSup_C, custName_C, "Finished OK")
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, archive);
         //Go back home
         await HomeDash("b");
-        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(intCatSup);
+        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(intCatSup_C);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
         await LoadDom();
         await DelayS(5);
@@ -516,13 +545,13 @@ internal class CMTestInstanceC : CMom
         await resultList.Locator("tbody").Locator("tr").Nth(lastRestore).GetByText("Release version into production").ClickAsync();
         CMProcess[] restoreLive =
             [
-                new CMProcess("", "Set-Live Restored Version", startTime, intCatSup, custName, "Finished OK")
+                new CMProcess("", "Set-Live Restored Version", startTime, intCatSup_C, custName_C, "Finished OK")
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, restoreLive);
         //Access search and make sure the internal catalog item is not found
         Console.WriteLine("Wait 1 min before check on search");
         await DelayS(60);
-        await tp.GotoAsync(viewURL);
+        await tp.GotoAsync(viewURL_C);
         await LoadDom();
         await DelayS(5);
         await tp.Locator("//*[@id=\"termAuto\"]").FillAsync(testDate);
@@ -541,5 +570,41 @@ internal class CMTestInstanceC : CMom
         }
         
     }
+
+    [Test, Order(8)]
+    [Category ("CMB Test")]
+    public async Task TC274468_CMBA_CUSTOM_LANDING_MANAGEMENT()
+    {
+        string startTime = await GetMonTime();
+        await LogIn(CMB_USRB, CMB_PWDB);
+        await tp.GotoAsync(CMB_CUST_LANDING);
+        await LoadDom(5);
+        string pageName = $"{ENVIRONMENT}_{startTime}_TEST";
+        await tp.GetByRole(AriaRole.Link, new() { Name = "Create New Landing Page" }).ClickAsync();
+        await DelayS(5);
+        Assert.That(await tp.Locator("//*[@id=\"uiNewLandingPage\"]").IsVisibleAsync(), "New custom landing page popup not visible!");
+        await tp.Locator("//*[@id=\"newName\"]").FillAsync(pageName);
+        await tp.Locator("//*[@id=\"newDescription\"]").FillAsync(pageName);
+        await tp.Locator("#uiNewLandingPage").GetByText("Save").ClickAsync();
+        await LoadDom(5);
+        //Assign landing page to view
+        await tp.Locator("//*[@id=\"availablePage\"]").SelectOptionAsync(new SelectOptionValue() { Label = pageName});
+        string viewName = "";
+        if (ENVIRONMENT.ToLower() ==  "qa")
+        {
+            viewName = "SVVIEW1";
+        }
+        if (ENVIRONMENT.ToLower() == "prod")
+        {
+            viewName = "TESTCOE01";
+        }
+        await tp.Locator("//*[@id=\"selectedView\"]").SelectOptionAsync(new SelectOptionValue() { Label = viewName });
+        await DelayMS(500);
+        await tp.Locator("//*[@id=\"configureButton\"]").ClickAsync();
+        await LoadDom(5);
+        string pageURL = tp.Url;
+        Assert.That(pageURL.Contains("catalog/search5/showMenu.action"), $"Expect in search page but at {pageURL}");
+        string footer = await tp.Locator("body > div:nth-child(3) > footer > div > div > div > strong").InnerTextAsync();
+        Assert.That(footer.Contains(viewName), $"Expect view name {viewName} but returned footnote {footer}");
+    }
 }
- 

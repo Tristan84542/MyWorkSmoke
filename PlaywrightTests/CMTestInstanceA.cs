@@ -15,12 +15,23 @@ internal class CMTestInstanceA : CMom
     [OneTimeSetUp]
     public void InstanceAOTS()
     {
-        if (!debugMode)
+        ENVIRONMENT = TestContext.Parameters.Get("Environment", "QA");
+        browserName = TestContext.Parameters.Get("BrowserName", "chromium");
+        headless = TestContext.Parameters.Get("Headless", false);
+        channel = TestContext.Parameters.Get("Channel", "chrome");
+        debugMode = TestContext.Parameters.Get("DebugMode", false);
+        //Initialize CMParams
+        InitParam(ENVIRONMENT);
+        string[] files = Directory.GetFiles(".", "*.flag");
+        foreach (string file in files)
         {
-            CMCoordinator.WaitForStage(1);
-            //... setup code here
-            CMCoordinator.StageDone();
+            File.Delete(file);
         }
+        
+        //File.Delete("TC268234_Passed.flag");
+        //File.Delete("TC268234_Done.flag");
+        //File.Delete("TC268236_Done.flag");
+        Thread.Sleep(10000);
     }
     //Parallel Test instance specific for FTP upload test
     [Test, Order(1)]

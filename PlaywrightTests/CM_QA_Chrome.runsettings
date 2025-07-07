@@ -21,7 +21,7 @@
 		</LaunchOptions>
 	</Playwright>
 	<TestRunParameters>
-		<Parameter name="DebugMode" value="true"/>
+		<Parameter name="DebugMode" value="false"/>
 		<Parameter name="Environment" value ="QA"/>
 		<Parameter name="BrowserName" value="chromium"/>
 		<Parameter name="Headless" value="false"/>

@@ -6,6 +6,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Wordprocessing;
+using ICSharpCode.SharpZipLib;
 using Microsoft.Playwright;
 using NUnit.Framework;
 
@@ -17,27 +18,17 @@ namespace PlaywrightTests;
 
 internal class CMTestInstanceB : CMom
 {
+    private static bool TC268238 = false;
     private static bool TC274457 = false;
     private static bool TC274458 = false;
 
-    [OneTimeSetUp]
-    public void InstanceBOTS()
-    {
-        if (!debugMode)
-        {
-            CMCoordinator.WaitForStage(2);
-            File.Delete("TC268234_Passed.flag");
-            CMCoordinator.StageDone();
-        }
-    }
     [Test, Order(1)]
     [Category("CMS Test")]
     public async Task TC268232_CMS_UI_IMPORT_FLAT_SCF()
     {
         string startTime = await GetMonTime();
         await LogIn(CMS_USRB, CMS_PWDB);
-        await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
-        await CatchStackTrace();
+        await HomeDash("s");
         string[] CUST1File = [TXT_FILE];
         string[] CUST1Type = ["content"];
         await CMSUploadFile(CMS_B_TXT_CUSTNAME, CUST1File, CUST1Type);
@@ -54,43 +45,51 @@ internal class CMTestInstanceB : CMom
 
     [Test, Order(2)]
     [Category("CMS Test")]
-    public async Task TC268234_CMS_UI_RELEASE_XLS_SCF_ATTACHMENT()
+    public async Task TC268234_CMS_UI_RELEASE_XLSX_SCF_ATTACHMENT()
     {
-        string startTime = await GetMonTime();
-        await LogIn(CMS_USRB, CMS_PWDB);
-        await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
-        await CatchStackTrace();
-        string[] files = [XLSX_FILE, ATTACHMENT_FILE];
-        string[] types = ["content", "attachment"];
-        await CMSUploadFile(CMS_B_XLSX_CUSTNAME, files, types);
-        CMProcess[] importWAtt =
-            [
-                new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK"),
+        try
+        {
+            string startTime = await GetMonTime();
+            await LogIn(CMS_USRB, CMS_PWDB);
+            await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+            await CatchStackTrace();
+            string[] files = [XLSX_FILE, ATTACHMENT_FILE];
+            string[] types = ["content", "attachment"];
+            await CMSUploadFile(CMS_B_XLSX_CUSTNAME, files, types);
+            CMProcess[] importWAtt =
+                [
+                    new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK"),
                 new CMProcess("", "Attachment processing", startTime, CMS_B_SUP_NAME, "", "Finished OK")
-            ];
-        await MonProcesses(CMS_CATALOG_MONITOR, importWAtt);
-        await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
-        await CatchStackTrace();
-        var blocId = await FindCatalog(CMS_B_XLSX_CUSTNAME);
-        string metaId = await GetMetaId(blocId);
-        var bloc = tp.Locator($"id={blocId}");
-        await bloc.GetByText("Show more", new() { Exact = true}).ClickAsync();
-        await bloc.Locator("//a[@data-toggle='tab' and normalize-space(text())='Submit Catalog']").ClickAsync();
-        await DelayS(5);
-        await tp.Locator($"//*[@id=\"{metaId}_submitCat\"]").ClickAsync();//*[@id="63045_submitCat"]
-        CMProcess[] releCat =
-            [
-                new CMProcess("", "Release catalog", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
-            ];
-        await MonProcesses(CMS_CATALOG_MONITOR, releCat);
-        File.WriteAllText("TC268234_Passed.flag", "ok");
+                ];
+            await MonProcesses(CMS_CATALOG_MONITOR, importWAtt);
+            await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+            await CatchStackTrace();
+            var blocId = await FindCatalog(CMS_B_XLSX_CUSTNAME);
+            string metaId = await GetMetaId(blocId);
+            var bloc = tp.Locator($"id={blocId}");
+            await bloc.GetByText("Show more", new() { Exact = true }).ClickAsync();
+            await bloc.Locator("//a[@data-toggle='tab' and normalize-space(text())='Submit Catalog']").ClickAsync();
+            await DelayS(5);
+            await tp.Locator($"//*[@id=\"{metaId}_submitCat\"]").ClickAsync();//*[@id="63045_submitCat"]
+            CMProcess[] releCat =
+                [
+                    new CMProcess("", "Release catalog", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
+                ];
+            await MonProcesses(CMS_CATALOG_MONITOR, releCat);
+            File.WriteAllText("TC268234_Passed.flag", "OK");
+        }
+        finally
+        {
+            File.WriteAllText("TC268234_Done.flag", "DONE");
+        }
+        
     }
 
     [Test, Order(3)]
     [Category("CMB Test")]
     public async Task TC268238_CMB_Release_External_Catalog()
     {
-        Assert.That(File.Exists("TC268234_Passed.flag"), "TC268234_CMS_UI_RELEASE_XLS_SCF_ATTACHMENT failed! Skip testing");
+        Assume.That(File.Exists("TC268234_Passed.flag"), "TC268234_CMS_UI_RELEASE_XLSX_SCF_ATTACHMENT failed! Skip testing");
         string startTime = await GetMonTime();
         await LogIn(CMB_USRB, CMB_PWDB);
         await HomeDash("b");
@@ -156,9 +155,112 @@ internal class CMTestInstanceB : CMom
                 new CMProcess("", "Set Live", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK"),
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, setLive);
+        TC268238 = true;
+    }
+    [Test, Order(4)]
+    [Category("CMB Test")]
+    public async Task TC274459_CMB_DIFFING_REPORT()
+    {
+        //TC268238 = true;
+        //Test will not run if release external catalog test failed
+        //await WaitTCDone("TC268236_Done.flag");
+        Assume.That(TC268238, "Release external catalog failed, skip test");
+        //Test will upload a new supplier version and check the diffing report
+        //And it shall compare with production version
+        //Using the external catalog... xlsx
+        string uFile = "Catalog_scf_XLSX_u.xlsx";
+        string startTime = await GetMonTime();
+        string dlTime = await GetDLTime("b");
+        await LogIn(CMB_USRB, CMB_PWDB);
+        await HomeDash("b");
+        await FilterSup(CMS_B_SUP_NAME);
+        var blocId = await FindCatalog(CMS_B_SUP_NAME);
+        var metaId = await GetMetaId(blocId);
+        var blocLoc = tp.Locator($"id={blocId}");//CSS selector
+        //Reject any new supplier catalog
+        if (await blocLoc.GetByText("New version available").CountAsync() > 0)
+        {
+            Console.WriteLine("Catalog in status new version available, need reject catalog");
+            await blocLoc.GetByText("Show more").ClickAsync();
+            await LoadDom();
+            await DelayS(5);
+            await tp.Locator($"[id=\"{metaId}_allTasks_tabSupplierCatalog\"]").GetByText("Reject Catalog").ClickAsync();
+            await DelayS(5);
+            //*[@id="237593_allTasks_tabSupplierCatalog"]/div[2]/div/div[2]/a[2]
+            string? rejPopupClass = await tp.Locator("//*[@id='uiRejectComment']").GetAttributeAsync("class");
+            Assert.That(rejPopupClass.Contains("modal fade in"));
+            await tp.Locator("//*[@id='uiRejectCommentText']").FillAsync("Reject for Diffing report Test");
+            await tp.Locator("//*[@id='uiUpdateRejectCatalog']").ClickAsync();//Fire catalog rejection
+            await tp.WaitForLoadStateAsync(LoadState.Load);
+            await tp.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await tp.WaitForTimeoutAsync(2000);
+            await tp.Locator("//*[@id=\"uiCatalogRejectedMessage\"]/div/center/a").ClickAsync(); //This close popup but noticed the popup is not properly closed during automation
+            await tp.WaitForTimeoutAsync(5000);
+            var isPopupClosed = await tp.Locator("//*[@id='uiRejectComment']").IsHiddenAsync(); //Manually close the remaining popup after 5 second
+            if (!isPopupClosed)
+            {
+                await tp.Locator("//*[@id=\"uiRejectComment\"]/div/div/div[1]/button").ClickAsync();
+                await tp.WaitForTimeoutAsync(2000);
+            }
+        }
+        //Upload test file
+        await tp.Locator("//*[@id=\"btnShowUploadModal\"]").ClickAsync();
+        var uploadPop = tp.Locator("//*[@id=\"uiUploadModul\"]");
+        Assert.That(await uploadPop.IsVisibleAsync());
+        await DelayS(2);
+        Console.WriteLine("To upload catalog file");
+        await tp.Locator($"[id=\"uiFileSelect\"]").SetInputFilesAsync(
+            new[] { FILE_PATH + uFile });
+        await DelayMS(500);
+        await tp.Locator($"//*[@id=\"{uFile}_selectType\"]").SelectOptionAsync("content");
+        await DelayMS(500);
+        await uploadPop.GetByText("Process Files").ClickAsync();
+        await DelayMS(500);
+        await uploadPop.Locator("button").Nth(0).ClickAsync();
+        await DelayS(5);
+        CMProcess[] catImport =
+            [
+                new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
+            ];
+        await MonProcesses(CMB_CATALOG_MONITOR, catImport);
+        //Back dashboard and view diffing report
+        await DelayS(10);
+        await HomeDash("b");
+        await FilterSup(CMS_B_SUP_NAME);
+        //What the hell a delay of status update?
+        Assert.That(await blocLoc.GetByText("New version available").IsVisibleAsync(), "Catalog status ");
+        await blocLoc.GetByText("Show more").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("View Diffing Report").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        await CatchStackTrace();
+        await ReloadIfBackdrop();
+        var bodyContent = tp.Locator("//*[@id=\"bodyContent\"]");
+        int rows = await bodyContent.Locator("tr[id^='mainRow']").CountAsync();
+        int difItem1Cnt = await bodyContent.Locator("tr[id^='mainRow']").GetByText("11-015.5000", new LocatorGetByTextOptions { Exact = true }).CountAsync();
+        int difitem2Cnt = await bodyContent.Locator("tr[id^='mainRow']").GetByText("11-015.9025", new LocatorGetByTextOptions { Exact = true }).CountAsync();
+        Assert.That(rows == 2, "Expect only 2 changed item but not!");
+        Assert.That(difItem1Cnt == 1, $"Expecting 11-015.5000 but get {difItem1Cnt} of it");
+        Assert.That(difItem1Cnt == 1, $"Expecting 11-015.9025 but get {difItem1Cnt} of it");
+        await HomeDash("b");
+        await blocLoc.GetByText("Show more").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("Download Diffing Report").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+        CMProcess[] templateExport =
+            [
+                new CMProcess("", "Template Export", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
+            ];
+        await MonProcesses(CMB_CATALOG_MONITOR, templateExport);
+        await CMBDownload(dlTime, "Diffing Report", "TC274459_CMB_DIFFING_REPORT.zip");
+
     }
 
-    [Test, Order(4)]
+    [Test, Order(5)]
     [Category("CMB Test")]
     public async Task TC274457_CMB_SUPPLIER_CHECKROUTINE()
     {
@@ -166,6 +268,7 @@ internal class CMTestInstanceB : CMom
         string startTime = await GetMonTime();
         await LogIn(CMB_USRB, CMB_PWDB);
         await HomeDash("b");
+        await CMBRejectCatalog(CMS_B_SUP_NAME);
         await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(CMS_B_SUP_NAME);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
         await LoadDom();
@@ -241,7 +344,7 @@ internal class CMTestInstanceB : CMom
         Assert.That(newVerCnt == 1, $"Expect 1 'New Version available but get {newVerCnt}");
         TC274457 = true;
     }
-    [Test, Order(5)]
+    [Test, Order(6)]
     [Category ("CMB Test")]
     public async Task TC274458_CMB_CUSTOMER_CHECK_ROUTINE()
     {
@@ -256,6 +359,7 @@ internal class CMTestInstanceB : CMom
 
             await LogIn(CMB_USRB, CMB_PWDB);
             await HomeDash("b");
+            await CMBRejectCatalog(CMS_B_SUP_NAME);
             await tp.Locator("//*[@id=\"btnShowUploadModal\"]").ClickAsync();
             var uploadPop = tp.Locator("//*[@id=\"uiUploadModul\"]");
             Assert.That(await uploadPop.IsVisibleAsync());
@@ -352,7 +456,7 @@ internal class CMTestInstanceB : CMom
         Assert.That(newVerCnt == 1, $"Expect 1 'Catalog to approve' but get {newVerCnt}");
         TC274458 = true;
     }
-    [Test, Order(6)]
+    [Test, Order(7)]
     [Category ("CMB Test")]
     public async Task TC274465_CMB_ENRICHMENT_EXECUTE()
     {
@@ -368,30 +472,8 @@ internal class CMTestInstanceB : CMom
         {
             Console.WriteLine("CMB_CUSTOMER_CHECKROUTINE not passed, upload Enrichment only catalog!");
             string fileName = "Catalog_scf_ENRICH.xlsx";
-            if (await blocLoc.GetByText("New version available").CountAsync() > 0)
-            {
-                Console.WriteLine("Catalog in status new version available, need reject catalog");
-                await blocLoc.GetByText("Show more").ClickAsync();
-                await LoadDom();
-                await DelayS(5);
-                await tp.Locator($"[id=\"{metaId}_allTasks_tabSupplierCatalog\"]").GetByText("Reject Catalog").ClickAsync();
-                //*[@id="237593_allTasks_tabSupplierCatalog"]/div[2]/div/div[2]/a[2]
-                string? rejPopupClass = await tp.Locator("//*[@id='uiRejectComment']").GetAttributeAsync("class");
-                Assert.That(rejPopupClass.Contains("modal fade in"));
-                await tp.Locator("//*[@id='uiRejectCommentText']").FillAsync("Reject for Enrichment Test");
-                await tp.Locator("//*[@id='uiUpdateRejectCatalog']").ClickAsync();//Fire catalog rejection
-                await tp.WaitForLoadStateAsync(LoadState.Load);
-                await tp.WaitForLoadStateAsync(LoadState.NetworkIdle);
-                await tp.WaitForTimeoutAsync(2000);
-                await tp.Locator("//*[@id=\"uiCatalogRejectedMessage\"]/div/center/a").ClickAsync(); //This close popup but noticed the popup is not properly closed during automation
-                await tp.WaitForTimeoutAsync(5000);
-                var isPopupClosed = await tp.Locator("//*[@id='uiRejectComment']").IsHiddenAsync(); //Manually close the remaining popup after 5 second
-                if (!isPopupClosed)
-                {
-                    await tp.Locator("//*[@id=\"uiRejectComment\"]/div/div/div[1]/button").ClickAsync();
-                    await tp.WaitForTimeoutAsync(2000);
-                }
-            }
+            await CMBRejectCatalog(CMS_B_SUP_NAME);
+            //Upload test file
             await tp.Locator("//*[@id=\"btnShowUploadModal\"]").ClickAsync();
             var uploadPop = tp.Locator("//*[@id=\"uiUploadModul\"]");
             Assert.That(await uploadPop.IsVisibleAsync());
@@ -528,4 +610,5 @@ internal class CMTestInstanceB : CMom
         Assert.That(cnt1Key, Is.EqualTo(1), $"1 key mapping result not expected! {cnt1Key}");
         Assert.That((cnt2Key == 1 && cnt2_Key == 1), $"2 key mapping result not expected! {cnt2Key} & {cnt2_Key}");
     }
+    
 }

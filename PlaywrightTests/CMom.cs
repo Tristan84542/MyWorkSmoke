@@ -14,6 +14,7 @@ using static Microsoft.Playwright.Assertions;
 using System.Diagnostics;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using ClosedXML.Excel;
+using FluentAssertions.Extensions;
 
 
 
@@ -26,18 +27,16 @@ public abstract class CMom : CMParam
     protected IBrowserContext context;
     protected IPage tp;
 
-    [OneTimeSetUp]
-    public void ReadRunnerSettings()
-    {
-        CMCoordinator.WaitForStage(0);
-        environment = TestContext.Parameters.Get("Environment", "QA");
-        browserName = TestContext.Parameters.Get("BrowserName", "chromium");
-        headless = TestContext.Parameters.Get("Headless", false);
-        channel = TestContext.Parameters.Get("Channel", "chrome");
-        debugMode = TestContext.Parameters.Get("DebugMode", false);
-        //Initialize CMParams
-        InitParam(environment);
-    }
+    //[OneTimeSetUp]
+    //public void ReadRunnerSettings()
+    //{
+    //    if (currentStage == 0)
+    //    {
+    //        CMCoordinator.WaitForStage(0);
+            
+    //        CMCoordinator.StageDone();
+    //    }
+    //}
 
     [SetUp]
     public async Task CMInit()
@@ -115,10 +114,18 @@ public abstract class CMom : CMParam
 
     public async Task LoadDom()
     {
+        await LoadDom(0);
+    }
+    public async Task LoadDom(int s)
+    {
         await DelayMS(500);
         await WaitLoad("load");
         await DelayMS(500);
         await WaitLoad("dom");
+        if (s > 0)
+        {
+            await DelayS(s);
+        }
     }
     public async Task WaitLoad(string state)
     {
@@ -181,10 +188,17 @@ public abstract class CMom : CMParam
 
     public async Task LogIn(string username, string password)
     {
-        await LogIn(CMParam.PORTAL_LOGIN, username, password);
+        await LogIn(PORTAL_LOGIN, username, password, "N");
     }
-    public async Task LogIn(string portal, string username, string password)
+    public async Task NuLogin(string usernam, string password)
     {
+        await LogIn(PORTAL_LOGIN, usernam, password, "Y");
+    }
+
+    public async Task LogIn(string portal, string username, string password, string newUser)
+    {
+        string newUserProfile = PORTAL_URL + "/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.qa.hubwoo.com%2Fmain%2F";
+                //https://portal.qa.hubwoo.com/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.qa.hubwoo.com%2Fmain%2F
         await tp.GotoAsync(portal);
         await WaitLoad("load");
         await WaitLoad("dom");
@@ -195,7 +209,15 @@ public abstract class CMom : CMParam
         await tp.Locator("//*[@id='SignIn_Password']").FillAsync(password);
         await DelayMS(500);
         await tp.Locator("#signInButtonId").ClickAsync();
-        await CatchTBNErr(CMParam.PORTAL_MAIN);
+        switch (newUser) {
+            case "N":
+                await CatchTBNErr(PORTAL_MAIN);
+                break;
+            case "Y":
+                await CatchTBNErr(newUserProfile); break;
+            default:
+                throw new ArgumentException($"Check new user argument! (Y/N) but have {newUser}");
+        }
         await CatchStackTrace();
     }
     public async Task HomeDash(string co)
@@ -484,19 +506,90 @@ public abstract class CMom : CMParam
         for (int i = 0; i < listRows; i++)
         {
             dlItems[i] = await dlList.Locator("li").Nth(i).InnerTextAsync();
+            var match = Regex.Match(dlItems[i], @"\(([^)]+)\)");
+            string matchTime = "";
+            if (match.Success)
+            {
+                matchTime = match.Groups[1].Value;
+            }
             Console.WriteLine(dlItems[i]);
             //Strip the time for the whole string
-            dlTimes[i] = Regex.Match(dlItems[i], @"\([^)]+\)").Value;
-            if (dlItems[i].Contains(linkName) && IsLater(dlTime, dlTimes[i]))
+            if (dlItems[i].Contains(linkName) && IsLater(dlTime, matchTime))
             {
                 var waitForDownload = tp.WaitForDownloadAsync();
                 await dlList.GetByText(linkName).Nth(i).ClickAsync(); //*[@id="63045_DownloadFilesContent"]/li[1]/a
                 var download = await waitForDownload;
                 var fileName = DL_PATH + nameOFile;//"TC268233_CMS_CATALOG_DOWNLOAD.zip";
-                Console.WriteLine("Filed download as " + fileName);
+                Console.WriteLine("File is downloaded to " + fileName);
                 await download.SaveAsAsync(fileName);
                 break;
             }
+        }
+    }
+    public async Task CMBDownload(string refTime, string template, string fileName)
+    {
+        await tp.GotoAsync(CMB_CATALOG_DL);
+        await LoadDom();
+        await DelayS(5);
+        await CatchStackTrace();
+        var dlList = tp.Locator("//*[@id=\"itemListContainer\"]");
+        //*[@id="itemListContainer"]/tr[1]/td[1]
+        //find the diffing report that meets test start time
+        int rowCnt = await dlList.Locator("tr").CountAsync();
+        bool match = false;
+        for (int i = 0; i < rowCnt; i++)
+        {
+            string r1DLTime = await dlList.Locator("tr").Nth(i).Locator("td").Nth(0).InnerTextAsync();
+            string r1Template = await dlList.Locator("tr").Nth(i).Locator("td").Nth(1).InnerTextAsync();
+            bool timecheck = IsLater(refTime, r1DLTime);
+            if (timecheck && r1Template == template)
+            {
+                match = true;
+                Console.WriteLine("Matching diffing report found, download it now");
+                var waitForDL = tp.WaitForDownloadAsync();
+                await dlList.Locator("tr").Nth(i).Locator("td").Last.Locator("a").ClickAsync();
+                var dl = await waitForDL;
+                var saveTo = DL_PATH + fileName;
+                Console.WriteLine("File is downloaded to " + saveTo);
+                await dl.SaveAsAsync(saveTo);
+                break;
+            }
+        }
+        Assert.That(match, $"Unable to find target {template} to download");
+    }
+    public async Task CMBRejectCatalog(string supplier)
+    {
+        var blocId = await FindCatalog(supplier);
+        var metaId = await GetMetaId(blocId);
+        var blocLoc = tp.Locator($"id={blocId}");//CSS selector
+        if (await blocLoc.GetByText("New version available").CountAsync() > 0)
+        {
+            Console.WriteLine("Catalog in status new version available, need reject catalog");
+            await blocLoc.GetByText("Show more").ClickAsync();
+            await LoadDom();
+            await DelayS(5);
+            await tp.Locator($"[id=\"{metaId}_allTasks_tabSupplierCatalog\"]").GetByText("Reject Catalog").ClickAsync();
+            await DelayS(5);
+            //*[@id="237593_allTasks_tabSupplierCatalog"]/div[2]/div/div[2]/a[2]
+            string rejPopupClass = await tp.Locator("//*[@id='uiRejectComment']").GetAttributeAsync("class");
+            Assert.That(rejPopupClass.Contains("modal fade in"));
+            await tp.Locator("//*[@id='uiRejectCommentText']").FillAsync("Reject for Enrichment Test");
+            await tp.Locator("//*[@id='uiUpdateRejectCatalog']").ClickAsync();//Fire catalog rejection
+            await tp.WaitForLoadStateAsync(LoadState.Load);
+            await tp.WaitForLoadStateAsync(LoadState.NetworkIdle);
+            await tp.WaitForTimeoutAsync(2000);
+            await tp.Locator("//*[@id=\"uiCatalogRejectedMessage\"]/div/center/a").ClickAsync(); //This close popup but noticed the popup is not properly closed during automation
+            await tp.WaitForTimeoutAsync(5000);
+            var isPopupClosed = await tp.Locator("//*[@id='uiRejectComment']").IsHiddenAsync(); //Manually close the remaining popup after 5 second
+            if (!isPopupClosed)
+            {
+                await tp.Locator("//*[@id=\"uiRejectComment\"]/div/div/div[1]/button").ClickAsync();
+                await tp.WaitForTimeoutAsync(2000);
+            }
+        }
+        else 
+        {
+            Console.WriteLine("No catalog to reject!");
         }
     }
     /// <summary>
@@ -528,11 +621,37 @@ public abstract class CMom : CMParam
         }
 
     }
+
     public async Task FilterSup(string supplierName)
     {
         //Filter spplier by name
         await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(supplierName);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
+        await LoadDom();
+        await DelayS(5);
+    }
+    public async Task WaitTCDone(string file)
+    {
+        //This force test case to wait until the target file exist        
+        int waited = 0;
+        while (!File.Exists(file) && waited < 60)
+        {
+            await Task.Delay(20000);
+            waited++;
+        }
+        if (!File.Exists(file))
+        {
+            throw new Exception($"{file} is not completed within 20 min");
+        }
+    }
+    public async Task LogOut()
+    {
+        //Do not use network idle on signin page
+        Console.WriteLine("Log off from CM");
+        //await ReloadPageIfBackrop();
+        await tp.Locator("top-bar-user-section[name='User']").ClickAsync();
+        await tp.WaitForTimeoutAsync(500);
+        await tp.Locator("top-bar-item[name='Log Off']").ClickAsync();
         await LoadDom();
         await DelayS(5);
     }
