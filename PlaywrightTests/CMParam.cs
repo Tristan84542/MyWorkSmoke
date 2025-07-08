@@ -35,8 +35,10 @@ public class CMParam
     public static string CMB_CATALOG_HOME;
     public static string CMB_CATALOG_MONITOR;
     public static string CMB_CATALOG_DL;
+    public static string CMB_CATALOG_RPT;
     public static string CMB_CATALOG_EDITUSER;
     public static string CMB_CUST_LANDING;
+    public static string CMB_DATAGPUA;
 
 	public static string CMS_USRA; //cms user for instance A
 	public static string CMS_PWDA; //cms pwd for instance A
@@ -159,8 +161,11 @@ public class CMParam
         CMB_CATALOG_HOME = PORTAL_URL + "/srvs/BuyerCatalogs";
         CMB_CATALOG_MONITOR = PORTAL_URL + "/srvs/BuyerCatalogs/monitor/MonitorBuyer";
         CMB_CATALOG_DL = PORTAL_URL + "/srvs/BuyerCatalogs/export/index";
+        CMB_CATALOG_RPT = PORTAL_URL + "/srvs/BuyerCatalogs/reporting/index";
         CMB_CATALOG_EDITUSER = PORTAL_URL + "/srvs/omnicontent/BuyerManageUsers.aspx";
         CMB_CUST_LANDING = PORTAL_URL + "/srvs/BuyerCatalogs/admin/LandingPage";
+        CMB_DATAGPUA = PORTAL_URL + "/srvs/BuyerCatalogs/admin/DataGroupUserAssignment";
+
     }
 
 }

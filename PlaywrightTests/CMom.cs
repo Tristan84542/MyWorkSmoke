@@ -545,7 +545,7 @@ public abstract class CMom : CMParam
             if (timecheck && r1Template == template)
             {
                 match = true;
-                Console.WriteLine("Matching diffing report found, download it now");
+                Console.WriteLine($"Matching {template} found, download it now");
                 var waitForDL = tp.WaitForDownloadAsync();
                 await dlList.Locator("tr").Nth(i).Locator("td").Last.Locator("a").ClickAsync();
                 var dl = await waitForDL;

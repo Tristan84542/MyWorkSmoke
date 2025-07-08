@@ -14,6 +14,8 @@ using NUnit.Framework;
 using FluentAssertions;
 using DocumentFormat.OpenXml.Drawing;
 using DocumentFormat.OpenXml.Spreadsheet;
+using Path = System.IO.Path;
+using System.Drawing.Printing;
 
 
 
@@ -96,8 +98,7 @@ internal class CMTestInstanceC : CMom
         Assert.That(userProfileName.Contains("LastNameEdit"), "User profile do not have user last name");
     }
 
-
-    [Test, Order(2)]
+    [Test, Order(3)]
     [Category("CMS Test")]
     public async Task TC268233_CMS_CATALOG_DOWNLOAD()
     {
@@ -126,7 +127,7 @@ internal class CMTestInstanceC : CMom
         await CMSDownload(blocId, "SCF Export",  "TC268233_CMS_CATALOG_DOWNLOAD.zip", dlTime);
 
     }
-    [Test, Order(3)]
+    [Test, Order(4)]
     [Category("CMS Test")]
     public async Task TC268237_CMS_CATALOG_ITEM_N_REPORT()
     {
@@ -158,7 +159,7 @@ internal class CMTestInstanceC : CMom
         await MonProcesses(CMS_CATALOG_MONITOR, catalogDL);
         await CMSDownload(blocId, "Catalog Download Job", "TC268237_CMS_CATALOG_ITEM_N_REPORT.zip", dlTime);
     }
-    [Test, Order(4)]
+    [Test, Order(5)]
     [Category("CMS Test")]
     public async Task TC268235_CMS_DIFFINGREPORT()
     {
@@ -246,7 +247,7 @@ internal class CMTestInstanceC : CMom
         await CMSDownload(blocId, "Diffing Report", "TC268235_CMS_DIFFINGREPORT.zip", dlTime);
     }
 
-    [Test, Order(5)]
+    [Test, Order(6)]
     [Category("CMS Test")]
     public async Task TC268236_CMS_CHECKROUTINE()
     {
@@ -332,7 +333,7 @@ internal class CMTestInstanceC : CMom
         
     }
 
-    [Test, Order(6)]
+    [Test, Order(7)]
     [Category ("CMB Test")]
     public async Task TC274456_CMB_IMPORT_RELEASE_CATALOG()
     {
@@ -451,7 +452,7 @@ internal class CMTestInstanceC : CMom
         TC274456Passed = true;
     }
 
-    [Test, Order(7)]
+    [Test, Order(8)]
     [Category ("CMB Test")]
     public async Task TC274460_CMB_ARCHIVE_RESTORE()
     {
@@ -571,7 +572,7 @@ internal class CMTestInstanceC : CMom
         
     }
 
-    [Test, Order(8)]
+    [Test, Order(2)]
     [Category ("CMB Test")]
     public async Task TC274468_CMBA_CUSTOM_LANDING_MANAGEMENT()
     {
@@ -606,5 +607,209 @@ internal class CMTestInstanceC : CMom
         Assert.That(pageURL.Contains("catalog/search5/showMenu.action"), $"Expect in search page but at {pageURL}");
         string footer = await tp.Locator("body > div:nth-child(3) > footer > div > div > div > strong").InnerTextAsync();
         Assert.That(footer.Contains(viewName), $"Expect view name {viewName} but returned footnote {footer}");
+    }
+
+    [Test, Order(9)]
+    [Category ("CMB Test")]
+    async public Task TC274469_CMB_DATAGROUP_ASSIGNMENT_N_DOWNLOAD()
+    {
+        string startTime = await GetMonTime();
+        string dlTime = await GetDLTime("b");
+        await LogIn(CMB_USRB, CMB_PWDB);
+        //Head to data group page
+        await tp.GotoAsync(CMB_DATAGPUA);
+        await LoadDom(5);
+        await CatchStackTrace();
+        var dgTable = tp.Locator("//*[@id=\"uiDataGroupContent\"]");
+        //find the row that contains '{env} test 1key enrichment'
+        string tarEnrich = "test 1key enrichment";
+        int dgtRows = await dgTable.Locator("tr").CountAsync();
+        int tarRow = 0;
+        for (int i = 0; i < dgtRows; i++) {
+            string name = await dgTable.Locator("tr").Nth(i).Locator("td").Nth(0).InnerTextAsync();
+            if (name.Contains(tarEnrich))
+            {
+                tarRow = i;
+                break;
+            }
+        }
+        string tarName = await dgTable.Locator("tr").Nth(tarRow).Locator("td").Nth(0).InnerTextAsync();
+        //Because tarRow = 0 could still be not matching!
+        Assert.That(tarName.Contains(tarEnrich), "Template name does not match!");
+        //Click the assign user link
+        await dgTable.Locator("tr").Nth(tarRow).GetByText("Assign Users").ClickAsync();
+        await LoadDom(5);
+        var userAssignUI = tp.Locator("//*[@id=\"uiUserAssignment\"]");
+        Assert.That(await userAssignUI.IsVisibleAsync());
+        //To remove user, first define user for add - remove
+        string aUser = "";
+        switch (ENVIRONMENT.ToLower())
+        {
+            case "qa":
+                aUser = "SVB-0001 Buyer admin"; break;
+            case "prod":
+                aUser = "Buyer Admin EPAM"; break;
+            //No uat, no need default cause thing can't work at the start if not qa / prod
+        }
+        await tp.Locator("//*[@id=\"uiAddedUsers\"]").SelectOptionAsync(new SelectOptionValue() { Label = aUser });
+        await userAssignUI.Locator("a[onclick='removeUsers()']").ClickAsync();
+        await DelayS(1);
+        int aUserCnt = await tp.Locator("//*[@id=\"uiAddedUsers\"]").Locator("option").CountAsync();
+        Assert.That(aUserCnt == 0, "Assigned user is not 0!");
+        await userAssignUI.GetByText("Save").ClickAsync();
+        await LoadDom(5);
+        string templateUser = await dgTable.Locator("tr").Nth(tarRow).Locator("td").Nth(3).InnerTextAsync(); // expect - but will check against user name
+        Assert.That(!templateUser.Contains(aUser), $"{aUser} still found as assigned user!");
+        //Now go download page
+        await tp.GotoAsync(CMB_CATALOG_DL);
+        await LoadDom(5);
+        await ReloadIfBackdrop();
+        await CatchStackTrace();
+        await tp.GetByText("New Download", new PageGetByTextOptions() { Exact = true }).ClickAsync();
+        await DelayS(2);
+        await tp.Locator("//*[@id=\"uiTemplateType\"]").SelectOptionAsync("cus_enrich");
+        await DelayS(1);
+        //Get all template options
+        int tempCnt = await tp.Locator("//*[@id=\"uiExportTemplateDataGroup\"]").Locator("option").CountAsync();
+        string[] tempOpts = new string[tempCnt];
+        for (int  i = 0; i < tempCnt; i++)
+        {
+            tempOpts[i] = await tp.Locator("//*[@id=\"uiExportTemplateDataGroup\"]").Locator("option").Nth(i).InnerTextAsync();
+        }
+        //Make sure current use do not have '{env} test 1key enrichment'
+        Assert.That(tempOpts.Any(LinearGradientFill => tempOpts.Contains(tarEnrich)), Is.False, $"{ENVIRONMENT} test 1key enrichment is available to download!");
+        //Reassign user to enrichment
+        await tp.GotoAsync(CMB_DATAGPUA);
+        await LoadDom(5);
+        await CatchStackTrace();
+        await dgTable.Locator("tr").Nth(tarRow).GetByText("Assign Users").ClickAsync();
+        await LoadDom(5);
+        await tp.Locator("//*[@id=\"uiSelectUsers\"]").SelectOptionAsync(new SelectOptionValue() { Label = aUser });
+        await userAssignUI.Locator("a[onclick='addUsers()']").ClickAsync();
+        await DelayS(1);
+        aUserCnt = await tp.Locator("//*[@id=\"uiAddedUsers\"]").Locator("option").CountAsync();
+        Assert.That(aUserCnt == 1, "Assigned user is not 1!");
+        await userAssignUI.GetByText("Save").ClickAsync();
+        await LoadDom(5);
+        templateUser = await dgTable.Locator("tr").Nth(tarRow).Locator("td").Nth(3).InnerTextAsync();
+        Assert.That(templateUser.Contains(aUser), $"{aUser} not found as assigned user!");
+        //Now go download page and download the 1key enrichment
+        await tp.GotoAsync(CMB_CATALOG_DL);
+        await LoadDom(5);
+        await ReloadIfBackdrop();
+        await CatchStackTrace();
+        await tp.GetByText("New Download", new PageGetByTextOptions() { Exact = true }).ClickAsync();
+        await DelayS(2);
+        await tp.Locator("//*[@id=\"uiTemplateType\"]").SelectOptionAsync("cus_enrich");
+        await DelayS(1);
+        //get all template options again
+        tempCnt = await tp.Locator("//*[@id=\"uiExportTemplateDataGroup\"]").Locator("option").CountAsync();
+        int tempIdx = -1;
+        for (int i = 0; i < tempCnt; i++)
+        {
+            string dgOptions = await tp.Locator("//*[@id=\"uiExportTemplateDataGroup\"]").Locator("option").Nth(i).InnerTextAsync();
+            if (dgOptions.Contains(tarName))
+            {
+                tempIdx = i;
+                break;
+            }
+        }
+        Assert.That(tempIdx >= 0, "Cannot find template!");
+        await tp.Locator("//*[@id=\"uiExportTemplateDataGroup\"]").SelectOptionAsync(new SelectOptionValue() { Index = tempIdx });
+        await tp.Locator("//*[@id=\"uiButtoncreateNewExportTemplate\"]").ClickAsync();
+        await LoadDom(5);
+        CMProcess[] tempExp =
+            [
+            new CMProcess("", "Template Export", startTime, "", CMS_B_XLSX_CUSTNAME, "Finished OK")
+            ];
+        await MonProcesses(CMB_CATALOG_MONITOR, tempExp);
+        //Go back download enrichment
+        await tp.GotoAsync(CMB_CATALOG_DL);
+        await LoadDom(5);
+        await ReloadIfBackdrop();
+        await CatchStackTrace();
+        //Find from existing list that 1. is later than start time 2. Enrichment 3. has test 1key enrichment
+        var dlTable = tp.Locator("//*[@id=\"itemListContainer\"]");
+        int dlItemcnt = await dlTable.Locator("tr").CountAsync();
+        for (int i = 0; i < dlItemcnt; i++) 
+        {
+            var curRow = dlTable.Locator("tr").Nth(i);
+            string timestamp = await curRow.Locator("td").Nth(0).InnerTextAsync();
+            string template = await curRow.Locator("td").Nth(1).InnerTextAsync();
+            string filename = await curRow.Locator("td").Nth(7).Locator("a").GetAttributeAsync("href");
+            filename = Path.GetFileName(filename);
+            if (IsLater(dlTime, timestamp) && template.Contains("Enrichment file") && template.Contains("test 1key enrichment"))
+            {
+                var wait4DL = tp.WaitForDownloadAsync();
+                await curRow.Locator("td").Nth(7).Locator("a").ClickAsync();
+                var dl = await wait4DL;
+                var saveTo = DL_PATH + filename;
+                Console.WriteLine("File is download to " + saveTo);
+                await dl.SaveAsAsync(saveTo);
+                break;
+            }
+        }
+    }
+    
+    [Test, Order(10)]
+    [Category ("CMB Test")]
+    async public Task TC274461_CMB_DOWNLOAD_REPORT()
+    {
+        string startTime = await GetMonTime();
+        string dlTime = await GetDLTime("b");
+        await LogIn(CMB_USRB, CMB_PWDB);
+        await tp.GotoAsync(CMB_CATALOG_RPT);
+        await LoadDom(5);
+        await ReloadIfBackdrop();
+        await CatchStackTrace();
+        await tp.Locator("a[href='#reportParams']").ClickAsync();
+        await DelayS(2);
+        await tp.Locator("//*[@id=\"ddlReports\"]").SelectOptionAsync("ClassificationList");
+        await LoadDom(2);
+        string rptSName = "";
+        switch (ENVIRONMENT.ToLower())
+        {
+            case "qa":
+                rptSName = "SV Supplier 1 (654321)"; break;
+            case "prod":
+                rptSName = "TESTSUPCDO2 (TESTSUPCDO2)"; break;
+        }
+        await tp.Locator("//*[@id=\"uiSupplierForClassificationReportInput\"]").FillAsync(rptSName);
+        await DelayMS(500);
+        await tp.Locator("//*[@id=\"uiSupplierForClassificationReportInput\"]").PressAsync("Enter");
+        await DelayMS(500);
+        await tp.Locator("//*[@id=\"uiButtonCreateRport\"]").ClickAsync();
+        await LoadDom(5);
+        CMProcess[] reportJob =
+            [
+                new CMProcess("", "Reporting job", startTime, "", CMS_B_XLSX_CUSTNAME, "Finished OK")
+            ];
+        await MonProcesses(CMB_CATALOG_MONITOR, reportJob);
+        //Back to reporting
+        await tp.GotoAsync(CMB_CATALOG_RPT);
+        await LoadDom(5);
+        await ReloadIfBackdrop();
+        await CatchStackTrace();
+        //Find from existing list that 1. is later than start time 2.Classification report
+        var dlTable = tp.Locator("//*[@id=\"itemListContainer\"]");
+        int dlItemcnt = await dlTable.Locator("tr").CountAsync();
+        for (int i = 0; i < dlItemcnt; i++)
+        {
+            var curRow = dlTable.Locator("tr").Nth(i);
+            string timestamp = await curRow.Locator("td").Nth(0).InnerTextAsync();
+            string template = await curRow.Locator("td").Nth(1).InnerTextAsync();
+            string filename = await curRow.Locator("td").Nth(6).Locator("a").GetAttributeAsync("href");
+            filename = Path.GetFileName(filename);
+            if (IsLater(dlTime, timestamp) && template.Contains("Classification report"))
+            {
+                var wait4DL = tp.WaitForDownloadAsync();
+                await curRow.Locator("td").Nth(6).Locator("a").ClickAsync();
+                var dl = await wait4DL;
+                var saveTo = DL_PATH + filename;
+                Console.WriteLine("File is download to " + saveTo);
+                await dl.SaveAsAsync(saveTo);
+                break;
+            }
+        }
     }
 }
