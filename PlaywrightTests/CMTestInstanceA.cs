@@ -15,23 +15,38 @@ internal class CMTestInstanceA : CMom
     [OneTimeSetUp]
     public void InstanceAOTS()
     {
-        ENVIRONMENT = TestContext.Parameters.Get("Environment", "QA");
-        browserName = TestContext.Parameters.Get("BrowserName", "chromium");
-        headless = TestContext.Parameters.Get("Headless", false);
-        channel = TestContext.Parameters.Get("Channel", "chrome");
-        debugMode = TestContext.Parameters.Get("DebugMode", false);
-        //Initialize CMParams
-        InitParam(ENVIRONMENT);
         string[] files = Directory.GetFiles(".", "*.flag");
         foreach (string file in files)
         {
             File.Delete(file);
         }
+
+        ENVIRONMENT = TestContext.Parameters.Get("Environment", "QA");
+        browserName = TestContext.Parameters.Get("BrowserName", "chromium");
+        channel = TestContext.Parameters.Get("Channel", "chrome");
+        //string tempHead = TestContext.Parameters.Get("Headless", "false");
+        //string tempDebug = TestContext.Parameters.Get("DebugMode", "xyz");
+        headless = TestContext.Parameters.Get("Headless", false);
+        debugMode = TestContext.Parameters.Get("DebugMode", false);
+
+        //switch (tempHead)
+        //{
+        //    case "true": headless = true; break;
+        //    case "false": headless = false; break;
+        //}
+        //switch (tempDebug)
+        //{
+        //    case "true": debugMode = true;break;
+        //    case "false": debugMode = false;break;
+        //        default:
+        //        throw new ArgumentException("Wrong DebugMode value");
+        //}
         
-        //File.Delete("TC268234_Passed.flag");
-        //File.Delete("TC268234_Done.flag");
-        //File.Delete("TC268236_Done.flag");
-        Thread.Sleep(10000);
+        //Initialize CMParams
+        InitParam(ENVIRONMENT);
+        
+        Thread.Sleep(1000);
+        INITDONE = true;
     }
     //Parallel Test instance specific for FTP upload test
     [Test, Order(1)]

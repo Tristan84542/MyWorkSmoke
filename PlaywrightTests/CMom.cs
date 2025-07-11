@@ -15,6 +15,8 @@ using System.Diagnostics;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using ClosedXML.Excel;
 using FluentAssertions.Extensions;
+using NUnit.Framework.Constraints;
+using Microsoft.ApplicationInsights;
 
 
 
@@ -27,20 +29,10 @@ public abstract class CMom : CMParam
     protected IBrowserContext context;
     protected IPage tp;
 
-    //[OneTimeSetUp]
-    //public void ReadRunnerSettings()
-    //{
-    //    if (currentStage == 0)
-    //    {
-    //        CMCoordinator.WaitForStage(0);
-            
-    //        CMCoordinator.StageDone();
-    //    }
-    //}
-
     [SetUp]
     public async Task CMInit()
     {
+        WaitInit();
         dfTimeout = TestContext.Parameters.Get("Timeout", 60000);
         //Create playwright
         pw = await Playwright.CreateAsync();
@@ -65,7 +57,8 @@ public abstract class CMom : CMParam
                 throw new ArgumentException($"Unsupported browser: {browserName}");
         }
         //Create browsercontext
-        context = await browser.NewContextAsync(new() { ViewportSize = new ViewportSize() { Width = 1600, Height = 1000} });
+        context = await browser.NewContextAsync(new() { ViewportSize = new ViewportSize() { Width = 1600, Height = 1000}});
+        context.SetDefaultTimeout(dfTimeout);
         tp = await context.NewPageAsync();
 
         //return (pw, browser, context, tp);
@@ -82,8 +75,9 @@ public abstract class CMom : CMParam
 
     public async Task<string> GetMonTime()
     {
-        DateTime now = DateTime.Now.AddMinutes(-1); //Minus current time by 1 minute
+        DateTime now = DateTime.Now.AddMinutes(-2); //Minus current time by 1 minute
         string val = now.ToString("dd/MM/yyyy (HH:mm)");
+        Console.WriteLine($"Test start time {val}");
         return val;
     }
 
@@ -112,15 +106,17 @@ public abstract class CMom : CMParam
         await tp.WaitForTimeoutAsync(s * 1000);
     }
 
-    public async Task LoadDom()
+    public async Task LoNetDom()
     {
-        await LoadDom(0);
+        await LoNetDom(0);
     }
-    public async Task LoadDom(int s)
+    public async Task LoNetDom(int s)
     {
-        await DelayMS(500);
+        await DelayMS(200);
         await WaitLoad("load");
-        await DelayMS(500);
+        await DelayMS(200);
+        await WaitLoad("idle");
+        await DelayMS(200);
         await WaitLoad("dom");
         if (s > 0)
         {
@@ -135,7 +131,7 @@ public abstract class CMom : CMParam
                 await tp.WaitForLoadStateAsync(LoadState.Load);
                 break;
             case "idle":
-                await tp.WaitForLoadStateAsync(LoadState.NetworkIdle);
+                await tp.WaitForLoadStateAsync(LoadState.NetworkIdle, new PageWaitForLoadStateOptions() { Timeout = dfTimeout});
                 break;
             case "dom":
                 await tp.WaitForLoadStateAsync(LoadState.DOMContentLoaded);
@@ -162,22 +158,25 @@ public abstract class CMom : CMParam
     }
     public async Task CatchStackTrace()
     {
+        await WaitLoad("dom");
         int stCnt = await tp.GetByText("StackTrace").CountAsync();
         if (stCnt > 0)
         {
             Console.WriteLine("StackTrace Error found! \nReload page!");
             await tp.ReloadAsync();
+            await LoNetDom(5);
         }        
     }
     public async Task<bool> ReloadIfBackdrop()
     {
+        await WaitLoad("dom");
         int bdCnt = await tp.Locator("div[class*='backdrop']").CountAsync();
         string loadStyle = await tp.Locator("//*[@id=\"loadingScreen\"]").GetAttributeAsync("style") ?? "";
 
         if (bdCnt > 0 && loadStyle.Contains("none")){
             Console.WriteLine("Backdrop exist after loading finished.\nReload " + tp.Url);
             await tp.ReloadAsync();
-            await WaitLoad("dom");
+            await LoNetDom(5);
             return true;
         } else
         {
@@ -197,8 +196,19 @@ public abstract class CMom : CMParam
 
     public async Task LogIn(string portal, string username, string password, string newUser)
     {
-        string newUserProfile = PORTAL_URL + "/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.qa.hubwoo.com%2Fmain%2F";
-                //https://portal.qa.hubwoo.com/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.qa.hubwoo.com%2Fmain%2F
+        string callFrom;
+        switch (ENVIRONMENT.ToLower())
+        {
+            case "qa":
+                callFrom = "portal.qa.hubwoo.com"; break;
+            case "prod":
+                callFrom = "portal.hubwoo.com"; break;
+            default:
+                throw new ArgumentException("Check environment parameter QA / PROD only");
+        }
+        string newUserProfile = PORTAL_URL + $"/main/Admin/MyProfile?takeTo=https:%2F%2F{callFrom}%2Fmain%2F";
+        //https://portal.qa.hubwoo.com/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.qa.hubwoo.com%2Fmain%2F
+                   //https://portal.hubwoo.com/main/Admin/MyProfile?takeTo=https:%2F%2Fportal.hubwoo.com%2Fmain%2F
         await tp.GotoAsync(portal);
         await WaitLoad("load");
         await WaitLoad("dom");
@@ -235,7 +245,16 @@ public abstract class CMom : CMParam
             default:
                 throw new Exception("Invalid company type ( s/b )");
         }
-        await tp.GotoAsync(URL, new() { Timeout = 60000 });
+        try
+        {
+            await tp.GotoAsync(URL, new() { Timeout = dfTimeout });
+        }
+        catch (TimeoutException te)
+        {
+            Console.WriteLine($"Failed to open {URL} for 1 time, will try 1 more time");
+            await tp.GotoAsync(URL, new() { Timeout = dfTimeout });
+        }
+        await LoNetDom(5);
         await CatchStackTrace();
         await DelayS(2);
     }
@@ -316,11 +335,19 @@ public abstract class CMom : CMParam
     public async Task MonProcesses(string url, CMProcess[] tProc)
     {
         await tp.GotoAsync(url); //Go to monitor page
-        await CatchStackTrace();
-        await WaitLoad("dom");
+        await LoNetDom(5);
+        try
+        {
+            await ReloadIfBackdrop();
+            await CatchStackTrace();
+        }
+        catch (TimeoutException te)
+        {
+            Console.WriteLine("Something sort of error during catch backdrop / stacktrace");
+        }
         await DelayS(5);//Delay further 5 sec for stability
         Console.WriteLine("Hope monitor page stable after 5 sec");
-        int itemPerPage = 10;
+        int itemPerPage = 20;
         await tp.Locator("//*[@id='uiRecordCount']").ClickAsync();
         await DelayMS(500);
         await tp.RunAndWaitForResponseAsync(async () =>
@@ -333,10 +360,7 @@ public abstract class CMom : CMParam
         await ReloadIfBackdrop();
         await tp.Locator("//*[@id=\"ddlRefreshTime\"]").SelectOptionAsync("0"); //Set for manual testing
         Console.WriteLine("Set to manual refresh. Will trigger a page load");
-        await WaitLoad("load"); //Wait until page done loading
-        await WaitLoad("idle");
-        await WaitLoad("dom");
-        await DelayS(5);//Delay further 5 sec for stability
+        await LoNetDom(5);
         await ReloadIfBackdrop();
         //For 1 minute, find the process by matching process, start time, supplier & customer
         int toMatch = tProc.Length;
@@ -387,6 +411,7 @@ public abstract class CMom : CMParam
             else
             {
                 Console.WriteLine($"Not all process match found in trial {tryCnt + 1} / 3");
+                tryCnt++;
                 if (tryCnt < 3)
                 {
                     Console.WriteLine("Delay 20 sec then refresh page and try again");
@@ -473,10 +498,10 @@ public abstract class CMom : CMParam
         }
         return procMainRow;
     }
-    public static bool IsLater(string time1, string time2)
+    public static bool IsLater(string earlyTime, string lateTime)
     {
-        string t1 = time1.Replace("(", "").Replace(")", "");
-        string t2 = time2.Replace("(", "").Replace(")", "");
+        string t1 = earlyTime.Replace("(", "").Replace(")", "");
+        string t2 = lateTime.Replace("(", "").Replace(")", "");
         DateTime dt1 = DateTime.Parse(t1);
         DateTime dt2 = DateTime.Parse(t2);
         if (dt1 < dt2)
@@ -529,7 +554,7 @@ public abstract class CMom : CMParam
     public async Task CMBDownload(string refTime, string template, string fileName)
     {
         await tp.GotoAsync(CMB_CATALOG_DL);
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         await CatchStackTrace();
         var dlList = tp.Locator("//*[@id=\"itemListContainer\"]");
@@ -566,8 +591,8 @@ public abstract class CMom : CMParam
         {
             Console.WriteLine("Catalog in status new version available, need reject catalog");
             await blocLoc.GetByText("Show more").ClickAsync();
-            await LoadDom();
-            await DelayS(5);
+            await LoNetDom(5);
+            await OldCusErrHandle(metaId);
             await tp.Locator($"[id=\"{metaId}_allTasks_tabSupplierCatalog\"]").GetByText("Reject Catalog").ClickAsync();
             await DelayS(5);
             //*[@id="237593_allTasks_tabSupplierCatalog"]/div[2]/div/div[2]/a[2]
@@ -591,6 +616,7 @@ public abstract class CMom : CMParam
         {
             Console.WriteLine("No catalog to reject!");
         }
+        await HomeDash("b");
     }
     /// <summary>
     /// Updates the value of a specific cell in a given worksheet of an XLSX file.
@@ -626,23 +652,38 @@ public abstract class CMom : CMParam
     {
         //Filter spplier by name
         await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(supplierName);
+        await DelayMS(200);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(1);
+        await WaitSpinOff(4);
+    }
+    public static void WaitInit()
+    {
+        while (!INITDONE)
+        {
+            Console.WriteLine("Parameters not yet initialized, wait for 10 secs!");
+            Thread.Sleep(10000);
+        }
     }
     public async Task WaitTCDone(string file)
     {
-        //This force test case to wait until the target file exist        
-        int waited = 0;
-        while (!File.Exists(file) && waited < 60)
+        WaitInit();
+        if (!debugMode)
         {
-            await Task.Delay(20000);
-            waited++;
+            Thread.Sleep(10000);
+            //This force test case to wait until the target file exist        
+            int waited = 0;
+            while (!File.Exists(file) && waited < 60)
+            {
+                await Task.Delay(20000);
+                waited++;
+            }
+            if (!File.Exists(file))
+            {
+                throw new Exception($"{file} is not completed within 20 min");
+            }
         }
-        if (!File.Exists(file))
-        {
-            throw new Exception($"{file} is not completed within 20 min");
-        }
+        
     }
     public async Task LogOut()
     {
@@ -652,8 +693,36 @@ public abstract class CMom : CMParam
         await tp.Locator("top-bar-user-section[name='User']").ClickAsync();
         await tp.WaitForTimeoutAsync(500);
         await tp.Locator("top-bar-item[name='Log Off']").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
     }
+    public async Task OldCusErrHandle(string metaId)
+    {
+        var navWiz = tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]");
+        Console.WriteLine("Create working version");
+        string? isActive = await navWiz.Locator("li").Nth(1).GetAttributeAsync("class");
+        if (isActive == null || !isActive.Equals("active"))
+        {
+            //This catch previous catalog has customer side error
+            try
+            {
+                await navWiz.Locator("li").Nth(1).ClickAsync();
+                await LoNetDom(5);
+                isActive = await navWiz.Locator("li").Nth(1).GetAttributeAsync("class"); //Get attribute again!
+            }
+            catch (TimeoutException te)
+            {
+                Console.WriteLine("Supplier Catalog chevron is not active for some reason! " + te.Message);
+                isActive = await navWiz.Locator("li").Nth(1).GetAttributeAsync("class"); //Get attribute again!
+            }
+        }
+        Assert.That(isActive, Does.Contain("active"), "Supplier catalog chevron expect active but not!");
+    }
 
+    public async Task WaitSpinOff(int timeout)
+    {
+        int to = timeout * 1000;
+        await tp.Locator("#loadingScreen").WaitForAsync(new() { State = WaitForSelectorState.Hidden , Timeout = to});
+
+    }
 }

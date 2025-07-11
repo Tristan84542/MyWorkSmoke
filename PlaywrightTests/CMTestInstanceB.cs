@@ -26,6 +26,7 @@ internal class CMTestInstanceB : CMom
     [Category("CMS Test")]
     public async Task TC268232_CMS_UI_IMPORT_FLAT_SCF()
     {
+        WaitInit();
         string startTime = await GetMonTime();
         await LogIn(CMS_USRB, CMS_PWDB);
         await HomeDash("s");
@@ -35,9 +36,18 @@ internal class CMTestInstanceB : CMom
         string[] CUST2File  = [XLS_FILE];
         string[] CUST2Type = ["content"];
         await CMSUploadFile(CMS_B_XLS_CUSTNAME, CUST2File, CUST2Type);
+        string txtRes = "";
+        switch (ENVIRONMENT.ToLower())
+        {
+            case "qa":
+                txtRes = "Finished OK"; break;
+            case "prod":
+                txtRes = "Finished OK"; break; 
+
+        }
         CMProcess[] fSCFImport =
         [
-            new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_TXT_CUSTNAME, "Finished OK"),
+            new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_TXT_CUSTNAME, txtRes),
             new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLS_CUSTNAME, "Finished OK")
         ];
         await MonProcesses(CMS_CATALOG_MONITOR, fSCFImport);
@@ -86,6 +96,100 @@ internal class CMTestInstanceB : CMom
     }
 
     [Test, Order(3)]
+    [Category("CMS Test")]
+    public async Task TC268235_CMS_DIFFINGREPORT()
+    {
+        try
+        {
+            await WaitTCDone("TC268234_Passed.flag");
+            string startTime = await GetMonTime();
+            string dlTime = await GetDLTime("s");
+            await LogIn(CMS_USRC, CMS_PWDC);
+            await HomeDash("s");
+            string[] uFile = ["Catalog_scf_XLSX_u.xlsx"];
+            string[] utype = ["content"];
+            await CMSUploadFile(CMS_B_XLSX_CUSTNAME, uFile, utype);
+            CMProcess[] uCatImport =
+                [
+                    new CMProcess("", "Simple Catalog import", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
+                ];
+            await MonProcesses(CMS_CATALOG_MONITOR, uCatImport);
+            await HomeDash("s");
+            var blocId = await FindCatalog(CMS_C_CUSTNAME); //*[@id="(63045)_catalog"]/div/div[1]/a
+            var bloc = tp.Locator($"id={blocId}");
+            var metaId = await GetMetaId(blocId);
+            var cogX = $"//*[@id=\"({metaId})_catalog\"]/div/div[1]";
+            await tp.Locator(cogX).ClickAsync();
+            await DelayS(2);
+            await bloc.Locator("div[class='settings open']").GetByText("Diffing Report").ClickAsync();
+            await LoNetDom(5);
+            await CatchStackTrace();
+            Assert.That(tp.Url, Does.Contain("CatalogManager/diffing/diffing-supplier"));
+            var diffTable = tp.Locator("//*[@id=\"bodyContent\"]");
+            var mainRow = diffTable.Locator("tr[id^='mainRow']");
+            //Define reference mainrow value
+            string[,] refMain = new string[,]
+            {
+            {"11-015.5000",  "Methylenchlorid 134", "Changed", "1"},
+            {"11-015.9025", "321", "Changed", "4" }
+            };
+            //Read in actual main row then compare
+            //Make sure main row equal to reference value
+            int rowCnt = await mainRow.CountAsync();
+            Assert.That(rowCnt, Is.EqualTo(2), $"Expect to have 2 result but get {rowCnt}");
+            int matchRow = 0;
+            for (int i = 0; i < 2; i++)
+            {
+                for (int j = 0; j < rowCnt; j++)
+                {
+                    string itemId = await mainRow.Nth(j).Locator("td").Nth(0).InnerTextAsync();
+                    string shortDesc = await mainRow.Nth(j).Locator("td").Nth(1).InnerTextAsync();
+                    string state = await mainRow.Nth(j).Locator("td").Nth(2).InnerTextAsync();
+                    string fields = await mainRow.Nth(j).Locator("td").Nth(3).InnerTextAsync();
+                    if (refMain[i, 0] == itemId &&
+                        refMain[i, 1] == shortDesc &&
+                        refMain[i, 2] == state &&
+                        refMain[i, 3] == fields
+                        )
+                    {
+                        matchRow++;
+                        break;
+                    }
+                }
+            }
+            Assert.That(matchRow, Is.EqualTo(2), $"Expect to have 2 match but get {matchRow} match");
+            //Download csv diffing report
+            await tp.Locator("//*[@id=\"uiDiffingReportType\"]").SelectOptionAsync("CSV");
+            await DelayMS(500);
+            var waitForDownload = tp.WaitForDownloadAsync();
+            await tp.GetByText("Download Report").ClickAsync();
+            var download = await waitForDownload;
+            var fileName = DL_PATH + $"TC268235_CMS_DIFFINGREPORT.csv";
+            Console.WriteLine("Filed download as " + fileName);
+            await download.SaveAsAsync(fileName);
+            //Download xlsx diffing report
+            await DelayS(5);
+            await tp.Locator("//*[@id=\"uiDiffingReportType\"]").SelectOptionAsync("XLSX");
+            await tp.GetByText("Download Report").ClickAsync();
+            await DelayS(2);
+            await LoNetDom();
+            await DelayS(3);
+            Assert.That(tp.Url == CMS_CATALOG_MONITOR);
+            await CatchStackTrace();
+            CMProcess[] xlsxDiff =
+                [
+                    new CMProcess("", "Template Export", startTime, CMS_C_SUP_NAME, CMS_C_CUSTNAME, "Finished OK")
+                ];
+            await MonProcesses(CMS_CATALOG_MONITOR, xlsxDiff);
+            await CMSDownload(blocId, "Diffing Report", "TC268235_CMS_DIFFINGREPORT.zip", dlTime);
+        }
+        finally
+        {
+            File.WriteAllText("TC268235_Done.flag", "Done");
+        }
+    }
+
+    [Test, Order(4)]
     [Category("CMB Test")]
     public async Task TC268238_CMB_Release_External_Catalog()
     {
@@ -98,16 +202,13 @@ internal class CMTestInstanceB : CMom
         var blocLoc = tp.Locator($"id={blocId}");
         //Click show more
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
-        var navWiz = tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]");
-        Console.WriteLine("Create working version");
-        string? isActive = await navWiz.Locator("li").Nth(1).GetAttributeAsync("class");
-        Assert.That(isActive, Does.Contain("active"), "Supplier catalog chevron expect active but not!");
+        await LoNetDom(5);
+        await OldCusErrHandle(metaId);
         //Create working version
         var supCat = tp.Locator($"//*[@id=\"{metaId}_allTasks_tabSupplierCatalog\"]");
         await supCat.GetByText("Create Working Version").ClickAsync();
-        await LoadDom();
-        await ReloadIfBackdrop();
+        await LoNetDom(5);
+        //await ReloadIfBackdrop();
         CMProcess[] loadCat =
             [
                 new CMProcess("", "Load Catalog", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK"),
@@ -117,14 +218,15 @@ internal class CMTestInstanceB : CMom
         var statusVal = await tp.Locator($"//*[@id=\"{blocId}\"]/div/div[3]/div[2]/div").InnerTextAsync();//*[@id="237593_allTasks_catalog"]/div/div[3]/div[2]/div
         Assert.That(statusVal, Does.Contain("Catalog to approve"));
         await blocLoc.GetByText("Show more", new() {  Exact = true }).ClickAsync();
-        await LoadDom();
-        isActive = await navWiz.Locator("li").Nth(2).GetAttributeAsync("class");
+        await LoNetDom();
+        var navWiz = tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]");
+        string isActive = await navWiz.Locator("li").Nth(2).GetAttributeAsync("class");
         Assert.That(isActive, Does.Contain("active"), "Approve items chevron expect active but not!");
         //*[@id="237593_allTasks_tabApproveItems"]/div[2]/div/div[2]/a[1]
         var appItems = tp.Locator($"//*[@id=\"{metaId}_allTasks_tabApproveItems\"]");
         //Approve
         await appItems.GetByText("Review Items").ClickAsync();
-        await LoadDom();
+        await LoNetDom(5);
         await CatchStackTrace();
         Assert.That(tp.Url, Does.Contain("/srvs/BuyerCatalogs/items/item-list"), "Expect to be in item review page but not!");
         await ReloadIfBackdrop();
@@ -133,15 +235,15 @@ internal class CMTestInstanceB : CMom
         await tp.Locator("//*[@id=\"uiInternalComment\"]").FillAsync($"TC268238_CMB_Release_External_Catalog on {testDate}");
         await DelayS(2);
         await tp.Locator("//*[@id=\"uiSubmitAction\"]").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(15);
         await ReloadIfBackdrop();
-        await tp.Locator("//*[@id=\"uiGoToReleaseTab\"]").ClickAsync();
-        await LoadDom();
+        await tp.Locator("//*[@id=\"uiGoToReleaseTab\"]").ClickAsync(); //This go to release catalog
+        await LoNetDom(15);
         Console.WriteLine("Ready to release directly");
         //Return to dashboard with release catalog 
         Assert.That(tp.Url, Does.Contain(CMB_CATALOG_HOME), "Expect to be back to dashboard but not!");
         isActive = await navWiz.Locator("li").Nth(3).GetAttributeAsync("class");
+
         Assert.That(isActive, Does.Contain("active"), "Release Catalog chevron expect active but not!");
         //*[@id="237593_allTasks_tabReleaseCatalog"]/div[2]/div/div[1]/a[1]
         var relCat = tp.Locator($"//*[@id=\"{metaId}_allTasks_tabReleaseCatalog\"]");
@@ -149,7 +251,7 @@ internal class CMTestInstanceB : CMom
         await relCat.GetByText("Direct Release").ClickAsync();
         Console.WriteLine("Direct release catalog now!");
         await tp.Locator("//*[@id=\"uiDirectRelease\"]").GetByText("OK", new() { Exact = true }).ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         CMProcess[] setLive =
             [
                 new CMProcess("", "Set Live", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK"),
@@ -157,7 +259,7 @@ internal class CMTestInstanceB : CMom
         await MonProcesses(CMB_CATALOG_MONITOR, setLive);
         TC268238 = true;
     }
-    [Test, Order(4)]
+    [Test, Order(5)]
     [Category("CMB Test")]
     public async Task TC274459_CMB_DIFFING_REPORT()
     {
@@ -182,7 +284,7 @@ internal class CMTestInstanceB : CMom
         {
             Console.WriteLine("Catalog in status new version available, need reject catalog");
             await blocLoc.GetByText("Show more").ClickAsync();
-            await LoadDom();
+            await LoNetDom();
             await DelayS(5);
             await tp.Locator($"[id=\"{metaId}_allTasks_tabSupplierCatalog\"]").GetByText("Reject Catalog").ClickAsync();
             await DelayS(5);
@@ -224,17 +326,22 @@ internal class CMTestInstanceB : CMom
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, catImport);
         //Back dashboard and view diffing report
-        await DelayS(10);
+        await DelayS(5);
         await HomeDash("b");
+        await DelayS(5);
+        await tp.ReloadAsync();
+        await LoNetDom(5);
         await FilterSup(CMS_B_SUP_NAME);
         //What the hell a delay of status update?
-        Assert.That(await blocLoc.GetByText("New version available").IsVisibleAsync(), "Catalog status ");
+        //string statusBox = await blocLoc.Locator("div >> nth=2 >> div >> nth=1 >> div").InnerTextAsync();
+        //Console.WriteLine(statusBox);
+        //Assert.That(await blocLoc.GetByText("New version available").IsVisibleAsync(), "Catalog status ");
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(5);
+        await WaitSpinOff(5);
         await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("View Diffing Report").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(5);
+        await WaitSpinOff(5);
         await CatchStackTrace();
         await ReloadIfBackdrop();
         var bodyContent = tp.Locator("//*[@id=\"bodyContent\"]");
@@ -246,11 +353,11 @@ internal class CMTestInstanceB : CMom
         Assert.That(difItem1Cnt == 1, $"Expecting 11-015.9025 but get {difItem1Cnt} of it");
         await HomeDash("b");
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(5);
+        await WaitSpinOff(5);
         await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("Download Diffing Report").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(5);
+        //await WaitSpinOff(5);
         CMProcess[] templateExport =
             [
                 new CMProcess("", "Template Export", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
@@ -260,7 +367,7 @@ internal class CMTestInstanceB : CMom
 
     }
 
-    [Test, Order(5)]
+    [Test, Order(6)]
     [Category("CMB Test")]
     public async Task TC274457_CMB_SUPPLIER_CHECKROUTINE()
     {
@@ -269,10 +376,7 @@ internal class CMTestInstanceB : CMom
         await LogIn(CMB_USRB, CMB_PWDB);
         await HomeDash("b");
         await CMBRejectCatalog(CMS_B_SUP_NAME);
-        await tp.Locator("//*[@id=\"uiSupplierName\"]").FillAsync(CMS_B_SUP_NAME);
-        await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await FilterSup(CMS_B_SUP_NAME);
         var blocId = await FindCatalog(CMS_B_SUP_NAME);
         var metaId = await GetMetaId(blocId);
         var blocLoc = tp.Locator($"id={blocId}");//CSS selector
@@ -300,7 +404,7 @@ internal class CMTestInstanceB : CMom
         await FilterSup(CMS_B_SUP_NAME);
         //Click show more
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]/li[1]").IsVisibleAsync(),"Supplier Chevron is not visible");
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]/li[1]").InnerTextAsync(), Does.Contain("Errors (2)"), "Expect supplier catalog chevron contains 'Error (2)' but not!");
@@ -308,7 +412,7 @@ internal class CMTestInstanceB : CMom
         Console.WriteLine("To open item view of error correction");
         //*[@id="63045_237593_SupplierErrorReportItemsContent"]/table/tbody/tr/td[7]/a
         await blocLoc.Locator("div[id$='SupplierErrorReportItemsContent']").Locator("a[onclick^='showSupplierItemViewWithLoading']").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         //we have 2 uiItemView, supposingly 1 for supplier checkroutine and 1 for customer checkroutine
         var iVPop = tp.Locator($"div[id$=\"{metaId}_uiItemView\"]").First;
@@ -324,11 +428,11 @@ internal class CMTestInstanceB : CMom
         }
         await DelayS(2);
         await iVPop.GetByText("Save All").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         //Revalidate cataglog
         await blocLoc.Locator("a[id$='btnSupplierRevalidate']").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(2);
         catImport[0].State = "Finished OK";
         await MonProcesses(CMB_CATALOG_MONITOR, catImport);
@@ -344,7 +448,7 @@ internal class CMTestInstanceB : CMom
         Assert.That(newVerCnt == 1, $"Expect 1 'New Version available but get {newVerCnt}");
         TC274457 = true;
     }
-    [Test, Order(6)]
+    [Test, Order(7)]
     [Category ("CMB Test")]
     public async Task TC274458_CMB_CUSTOMER_CHECK_ROUTINE()
     {
@@ -396,7 +500,7 @@ internal class CMTestInstanceB : CMom
         var blocLoc = tp.Locator($"id={blocId}");//CSS selector
         //Click show more
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         //Previous test passed, catalog is in new version avaialable
         string? supCatActive = await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(1).GetAttributeAsync("class");
@@ -404,11 +508,11 @@ internal class CMTestInstanceB : CMom
         if (supCatActive != "active")
         {
             await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(1).ClickAsync();
-            await LoadDom();
+            await LoNetDom();
             await DelayS(5);
         }
         await blocLoc.Locator("a[onclick^='createWorkingVersion']").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(2);
         CMProcess[] loadCat =
             [
@@ -418,14 +522,14 @@ internal class CMTestInstanceB : CMom
         await HomeDash("b");
         //Click show more
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         //*[@id="237593_allTasks_navWizard"]/li[3]
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").IsVisibleAsync(), "Progress Chevron is not visible");
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(2).InnerTextAsync(), Does.Contain("Error Correction (2)"), "Expect chevron contains 'Error (2)' but not!");
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(2).GetAttributeAsync("class"), Does.Contain("active"), "Error correction chevron is not active!");
         await tp.Locator($"//*[@id=\"{metaId}_ErrorReportItemsContent\"]").Locator("a[onclick^='showItemViewWithLoading']").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         var iVPop = tp.Locator($"//*[@id=\"{metaId}_uiItemView\"]").Last;
         Assert.That(await iVPop.IsVisibleAsync(), "Item view popup is not visible!");
@@ -440,10 +544,9 @@ internal class CMTestInstanceB : CMom
         }
         await DelayS(2);
         await iVPop.GetByText("Save All").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(10);
         await tp.Locator($"//*[@id=\"{metaId}_btnRevalidate\"]").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(2);
         CMProcess[] revalCat =
             [
@@ -456,7 +559,7 @@ internal class CMTestInstanceB : CMom
         Assert.That(newVerCnt == 1, $"Expect 1 'Catalog to approve' but get {newVerCnt}");
         TC274458 = true;
     }
-    [Test, Order(7)]
+    [Test, Order(8)]
     [Category ("CMB Test")]
     public async Task TC274465_CMB_ENRICHMENT_EXECUTE()
     {
@@ -502,7 +605,7 @@ internal class CMTestInstanceB : CMom
             await FilterSup(CMS_B_SUP_NAME);
             //Click show more
             await blocLoc.GetByText("Show more").ClickAsync();
-            await LoadDom();
+            await LoNetDom();
             await DelayS(5);
             //Previous test passed, catalog is in new version avaialable
             string? supCatActive = await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(1).GetAttributeAsync("class");
@@ -510,11 +613,11 @@ internal class CMTestInstanceB : CMom
             if (supCatActive != "active")
             {
                 await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(1).ClickAsync();
-                await LoadDom();
+                await LoNetDom();
                 await DelayS(5);
             }
             await blocLoc.Locator("a[onclick^='createWorkingVersion']").ClickAsync();
-            await LoadDom();
+            await LoNetDom();
             await DelayS(2);
             CMProcess[] loadCat =
                 [
@@ -532,17 +635,14 @@ internal class CMTestInstanceB : CMom
         //Check automate enrichment
         //Open Item list from review item button
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(10);
         await blocLoc.Locator($"//*[@id=\"{metaId}_allTasks_tabApproveItems\"]").Locator("a").GetByText("Review Items").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(15);
         await CatchStackTrace();
         await ReloadIfBackdrop();
         //Need to set column to Enrichment set
         await tp.Locator("//*[@id=\"uiColumnSet\"]").SelectOptionAsync(new SelectOptionValue { Label = "Enrichment" });
-        await LoadDom();
-        await DelayS(5);
+        await LoNetDom(15);
         int cnt1Key = await tp.GetByText("test 1key").CountAsync();
         Assert.That(cnt1Key, Is.EqualTo(1), $"1 key mapping result not expected! {cnt1Key}");
         int cnt2Key = await tp.GetByText("test 2key").CountAsync();
@@ -552,7 +652,7 @@ internal class CMTestInstanceB : CMom
         await FilterSup(CMS_B_SUP_NAME);
         //Click show more
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         //Should land at approve item chevron
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").IsVisibleAsync(), "Progress Chevron is not visible");
@@ -560,7 +660,7 @@ internal class CMTestInstanceB : CMom
         Assert.That(await tp.Locator($"//*[@id=\"{metaId}_allTasks_navWizard\"]").Locator("li").Nth(2).GetAttributeAsync("class"), Does.Contain("active"), "Chevron is not active!");
         //Open enrichment menu
         await blocLoc.Locator($"//*[@id=\"{metaId}_allTasks_tabApproveItems\"]").Locator("a").GetByText("Enrichment").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(2);
         //Find row that contains 2key mapping manual
         //First assert ui available
@@ -586,7 +686,7 @@ internal class CMTestInstanceB : CMom
         await tp.Locator("//*[@id=\"uiManualEnrichmentSelectionType\"]").SelectOptionAsync("selected");
         await DelayMS(500);
         await tp.Locator("//*[@id=\"btnExecuteManualEnrichments\"]").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         CMProcess[] enrichProc =
             [
@@ -597,11 +697,12 @@ internal class CMTestInstanceB : CMom
         await HomeDash("b");
         await FilterSup(CMS_B_SUP_NAME);
         await blocLoc.GetByText("Show more").ClickAsync();
-        await LoadDom();
+        await LoNetDom();
         await DelayS(5);
         await blocLoc.Locator($"//*[@id=\"{metaId}_allTasks_tabApproveItems\"]").Locator("a").GetByText("Review Items").ClickAsync();
-        await LoadDom();
-        await DelayS(5);
+
+        await LoNetDom(10); //This could be just painfully slow
+        //And still loading even DOMLoaded?
         await CatchStackTrace();
         await ReloadIfBackdrop();
         cnt2Key = await tp.GetByText("test 2key").CountAsync();

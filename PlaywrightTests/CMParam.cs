@@ -14,12 +14,13 @@ namespace PlaywrightTests;
 public class CMParam
 {
     //Test runner settings param
-    public bool debugMode;
+    public static bool debugMode;
     public static string browserName;
     public static string channel;
     public static int dfTimeout;
     public static string ENVIRONMENT;
     public static bool headless;
+    public static volatile bool INITDONE = false;
 
     //One time setup param
     public static int currentStage = 0;
@@ -142,12 +143,12 @@ public class CMParam
             CMS_B_XLSX_CUSTNAME = "TESTCUSTCDO 1";
             CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
-            CMB_USRB = "EPAM_TC-0001";
-            CMB_PWDB = "xsw23edc";
+            CMB_USRB = "RegUserB";
+            CMB_PWDB = "RegUserB1!";
             intCatSup_C = "TESTSUPCDO9";
             custName_C = "TESTCUSTCDO 1";
-            userName_C = "EPAM_TC-0001";
-            password_C = "xsw23edc";
+            userName_C = "RegUserC";
+            password_C = "RegUserC1!";
             viewURL_C = "https://newui.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=TESTCOE05-05&VIEW_PASSWD=t3S4TcKp89Rqy&USER_ID=HUBWOO&LANGUAGE=EN&COUNTRY=GB&EASYORDER=1&BRANDING=search5&HOOK_URL=https://newui.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp";
             CMom.UpdateExcel(fileName_C, "Data 1", "C3", $"Smoke Internal Catalog 001 {testDateTime}");
 
