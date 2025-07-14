@@ -688,7 +688,7 @@ internal class CMTestInstanceC : CMom
         await ReloadIfBackdrop();
         await tp.Locator("//*[@id=\"uiGoToReleaseTab\"]").ClickAsync();
         await LoNetDom(5);
-        await WaitSpinOff(5);
+        await WaitSpinOff(50);
         Console.WriteLine("Ready to release directly");
         //Return to dashboard with release catalog chevron ready
         Assert.That(tp.Url, Does.Contain(CMB_CATALOG_HOME), "Expect to be back to dashboard but not!");

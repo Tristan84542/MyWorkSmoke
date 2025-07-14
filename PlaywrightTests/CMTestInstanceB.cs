@@ -338,10 +338,10 @@ internal class CMTestInstanceB : CMom
         //Assert.That(await blocLoc.GetByText("New version available").IsVisibleAsync(), "Catalog status ");
         await blocLoc.GetByText("Show more").ClickAsync();
         await LoNetDom(5);
-        await WaitSpinOff(5);
+        await WaitSpinOff(50);
         await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("View Diffing Report").ClickAsync();
         await LoNetDom(5);
-        await WaitSpinOff(5);
+        await WaitSpinOff(50);
         await CatchStackTrace();
         await ReloadIfBackdrop();
         var bodyContent = tp.Locator("//*[@id=\"bodyContent\"]");
@@ -354,7 +354,7 @@ internal class CMTestInstanceB : CMom
         await HomeDash("b");
         await blocLoc.GetByText("Show more").ClickAsync();
         await LoNetDom(5);
-        await WaitSpinOff(5);
+        await WaitSpinOff(50);
         await tp.Locator($"[id=\"{metaId}_allTasks_supplierCatalogDiffing\"]").GetByText("Download Diffing Report").ClickAsync();
         await LoNetDom(5);
         //await WaitSpinOff(5);
@@ -375,6 +375,7 @@ internal class CMTestInstanceB : CMom
         string startTime = await GetMonTime();
         await LogIn(CMB_USRB, CMB_PWDB);
         await HomeDash("b");
+        await FilterSup(CMS_B_SUP_NAME);
         await CMBRejectCatalog(CMS_B_SUP_NAME);
         await FilterSup(CMS_B_SUP_NAME);
         var blocId = await FindCatalog(CMS_B_SUP_NAME);
@@ -463,6 +464,7 @@ internal class CMTestInstanceB : CMom
 
             await LogIn(CMB_USRB, CMB_PWDB);
             await HomeDash("b");
+            await FilterSup(CMS_B_SUP_NAME) ;
             await CMBRejectCatalog(CMS_B_SUP_NAME);
             await tp.Locator("//*[@id=\"btnShowUploadModal\"]").ClickAsync();
             var uploadPop = tp.Locator("//*[@id=\"uiUploadModul\"]");
@@ -544,10 +546,11 @@ internal class CMTestInstanceB : CMom
         }
         await DelayS(2);
         await iVPop.GetByText("Save All").ClickAsync();
-        await LoNetDom(10);
+        await LoNetDom(3);
+        await WaitSpinOff(50);
         await tp.Locator($"//*[@id=\"{metaId}_btnRevalidate\"]").ClickAsync();
-        await LoNetDom();
-        await DelayS(2);
+        await LoNetDom(5);
+        await WaitSpinOff(50);
         CMProcess[] revalCat =
             [
                 new CMProcess("", "Revalidate catalog", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")

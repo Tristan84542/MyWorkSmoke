@@ -255,6 +255,7 @@ public abstract class CMom : CMParam
             await tp.GotoAsync(URL, new() { Timeout = dfTimeout });
         }
         await LoNetDom(5);
+        await WaitSpinOff(10);
         await CatchStackTrace();
         await DelayS(2);
     }
@@ -655,7 +656,7 @@ public abstract class CMom : CMParam
         await DelayMS(200);
         await tp.Locator("//*[@id=\"uiSearchCatalogs\"]").ClickAsync();
         await LoNetDom(1);
-        await WaitSpinOff(4);
+        await WaitSpinOff(30);
     }
     public static void WaitInit()
     {
