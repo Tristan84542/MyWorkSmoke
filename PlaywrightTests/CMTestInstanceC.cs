@@ -60,6 +60,7 @@ internal class CMTestInstanceC : CMom
         await tp.Locator("#ctl00_MainContent_TextBox5").FillAsync($"{newUser}!");//password
         await tp.Locator("#ctl00_MainContent_TextBox6").FillAsync($"{newUser}!");//password confirmation
         await tp.GetByLabel("Buyer", new() { Exact = true }).CheckAsync();
+        await tp.Locator("#ctl00_MainContent_cbDisableNotifications").CheckAsync();
         await tp.GetByRole(AriaRole.Link, new() { Name = "Save" }).ClickAsync();
         await LoNetDom();
         await DelayS(2);
@@ -497,6 +498,7 @@ internal class CMTestInstanceC : CMom
         string dlTime = await GetDLTime("s");
         await LogIn(CMS_USRB, CMS_PWDB);
         await tp.GotoAsync(CMS_CATALOG_HOME, new() { Timeout = 60000 });
+        await WaitSpinOff(dfTimeout);
         await CatchStackTrace();
         var blocId = await FindCatalog(CMS_C_CUSTNAME);
         var blocLoc = tp.Locator($"id={blocId}");

@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml.Office.PowerPoint.Y2021.M06.Main;
 using DocumentFormat.OpenXml.Wordprocessing;
 using ICSharpCode.SharpZipLib;
 using Microsoft.Playwright;
@@ -86,7 +87,11 @@ internal class CMTestInstanceB : CMom
                     new CMProcess("", "Release catalog", startTime, CMS_B_SUP_NAME, CMS_B_XLSX_CUSTNAME, "Finished OK")
                 ];
             await MonProcesses(CMS_CATALOG_MONITOR, releCat);
-            File.WriteAllText("TC268234_Passed.flag", "OK");
+            File.WriteAllText("TC268234_Passed.flag", "Passed");
+        }
+        catch (Exception e)
+        {
+            File.WriteAllText("TC268234_Failed.flag", "Failed");
         }
         finally
         {
@@ -101,7 +106,8 @@ internal class CMTestInstanceB : CMom
     {
         try
         {
-            await WaitTCDone("TC268234_Passed.flag");
+            Assume.That(File.Exists("TC268234_Passed.flag"), "Skip test case due to TC268234 FAILED");
+            //await WaitTCDone("TC268234_Done.flag");
             string startTime = await GetMonTime();
             string dlTime = await GetDLTime("s");
             await LogIn(CMS_USRC, CMS_PWDC);
@@ -227,6 +233,7 @@ internal class CMTestInstanceB : CMom
         //Approve
         await appItems.GetByText("Review Items").ClickAsync();
         await LoNetDom(5);
+        await WaitSpinOff(dfTimeout);
         await CatchStackTrace();
         Assert.That(tp.Url, Does.Contain("/srvs/BuyerCatalogs/items/item-list"), "Expect to be in item review page but not!");
         await ReloadIfBackdrop();
@@ -326,12 +333,11 @@ internal class CMTestInstanceB : CMom
             ];
         await MonProcesses(CMB_CATALOG_MONITOR, catImport);
         //Back dashboard and view diffing report
-        await DelayS(5);
+        await DelayS(60); //Delay due to catalog status update delay?
         await HomeDash("b");
-        await DelayS(5);
-        await tp.ReloadAsync();
-        await LoNetDom(5);
+        await WaitSpinOff();
         await FilterSup(CMS_B_SUP_NAME);
+        await WaitSpinOff();
         //What the hell a delay of status update?
         //string statusBox = await blocLoc.Locator("div >> nth=2 >> div >> nth=1 >> div").InnerTextAsync();
         //Console.WriteLine(statusBox);

@@ -588,7 +588,7 @@ public abstract class CMom : CMParam
         var blocId = await FindCatalog(supplier);
         var metaId = await GetMetaId(blocId);
         var blocLoc = tp.Locator($"id={blocId}");//CSS selector
-        if (await blocLoc.GetByText("New version available").CountAsync() > 0)
+        if (await blocLoc.GetByText("New version available").CountAsync() > 0 || await blocLoc.GetByText("On Error").CountAsync() > 0)
         {
             Console.WriteLine("Catalog in status new version available, need reject catalog");
             await blocLoc.GetByText("Show more").ClickAsync();
@@ -720,6 +720,10 @@ public abstract class CMom : CMParam
         Assert.That(isActive, Does.Contain("active"), "Supplier catalog chevron expect active but not!");
     }
 
+    public async Task WaitSpinOff()
+    {
+        await WaitSpinOff(dfTimeout);
+    }
     public async Task WaitSpinOff(int timeout)
     {
         int to = timeout * 1000;
