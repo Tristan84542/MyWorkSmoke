@@ -3726,24 +3726,24 @@ async public Task TC08_QQS_Supplier_Reject_Request()
 	[Category("QQTests")]
 	async public Task TC15_QQB_Buyer_Order_Offer_Simple_Datasheet()
 	{
-		//test based on devops test caseid 181476 : Buyer order offer (simple datasheet)
-		//https://dev.azure.com/Proactis/eCat/_testPlans/define?planId=125397&suiteId=179303
-		/*
+        //test based on devops test caseid 181476 : Buyer order offer (simple datasheet)
+        //https://dev.azure.com/Proactis/eCat/_testPlans/define?planId=125397&suiteId=179303
+        /*
 		 Open "request to offer {yymmdd}"
 		 Select "All" from the drop down list right to header "Quantity"
 		 Select "Order Position" from the drop down list "Actions for selected positions"
 		 Click the ">" button next to drop down list
 		*/
 
-		//TODO COMMENT OUT BEFORE PROD TESTING
-		//////////////////////////////////////////////////////////////////////////////
+        //TODO COMMENT OUT BEFORE PROD TESTING
+        //////////////////////////////////////////////////////////////////////////////
 
-		//requestToOfferTransactionName = "PW_Auto_RequestToOffer_chromium_20255311243";
-		//requestToOfferId = "102597803";
+        //requestToOfferTransactionName = "PW_Auto_RequestToOffer_chromium_20257191515";
+        //requestToOfferId = "102597803";
 
-		//////////////////////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////////////
 
-		Console.WriteLine("15: TC15_QQB_Buyer_Order_Offer_Simple_Datasheet");
+        Console.WriteLine("15: TC15_QQB_Buyer_Order_Offer_Simple_Datasheet");
 		string url = SEARCHURL;
 		PageWaitForSelectorOptions waitOptions = new PageWaitForSelectorOptions { Timeout = 180000, State = WaitForSelectorState.Visible };
 		LocatorClickOptions locatorClickOptions = new LocatorClickOptions { Timeout = 180000 };
@@ -8193,7 +8193,7 @@ async public Task TC08_QQS_Supplier_Reject_Request()
 		//TODO COMMENT OUT LINE BELOW BEFORE PROD TESTING
 		//////////////////////////////////////////////////////////////////////////////
 
-		requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_202563179";
+		//requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_20257191631";
 
 		//////////////////////////////////////////////////////////////////////////////
 		///
@@ -8450,7 +8450,7 @@ async public Task TC08_QQS_Supplier_Reject_Request()
 		//TODO COMMENT OUT BEFORE PROD TESTING
 		//////////////////////////////////////////////////////////////////////////////
 
-		requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_202563179";
+		//requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_20257191631";
 
 		//////////////////////////////////////////////////////////////////////////////
 		//https://dev.azure.com/Proactis/eCat/_testPlans/define?planId=125397&suiteId=179303
@@ -8613,7 +8613,7 @@ async public Task TC08_QQS_Supplier_Reject_Request()
 		//TODO COMMENT OUT BEFORE PROD TESTING
 		//////////////////////////////////////////////////////////////////////////////
 
-		requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_202563179";
+		//requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_20257191631";
 
 		//////////////////////////////////////////////////////////////////////////////
 
@@ -8840,7 +8840,7 @@ async public Task TC08_QQS_Supplier_Reject_Request()
 		//TODO COMMENT OUT BEFORE PROD TESTING
 		//////////////////////////////////////////////////////////////////////////////
 
-		requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_202563179";
+		//requestSupplierClassificationTransactionName = "PW_Auto_Sup_Class_chromium_20257191631";
 
 		//////////////////////////////////////////////////////////////////////////////
 
