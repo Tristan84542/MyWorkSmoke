@@ -1,5 +1,5 @@
 # Introduction 
-TODO: Give a short introduction of your project. Let this section explain the objectives or the motivation behind this project. 
+This repos contains the automations test to be run on the day of a releases, for Catalog Manager and Quick Quote only. For Search, please refer to search-test
 
 # Getting Started
 TODO: Guide users through getting your code up and running on their own system. In this section you can talk about:
@@ -9,7 +9,24 @@ TODO: Guide users through getting your code up and running on their own system. 
 4.	API references
 
 # Build and Test
-TODO: Describe and show how to build your code and run the tests. 
+Download and Build solution. No extra dependencies should be required
+
+To run CM:
+CM smoke automations make use of runsettings to parse environment parameters
+A few runsettings has been configured:
+- CM_PROD_Chrome.runsettings
+- CM_PROD_Chrome_DEBUG.runsettings
+- CM_QA_Chrome.runsettings
+
+For normal run, use CM_PROD_Chrome.runsettings
+Then select CMTestInstanceA, B & C
+Note: 
+1. Instance A was meant for FTP upload catalog & **parameters initialization** even FTP upload case is not automated
+2. Run order is determined by the [Test, Order(x)] in code and not by the TC number
+3. If need to run on other browser, please make a copy of runsettings and rename to target browser then change the value within. **Do not change the existing runsettings**
+
+For retest run, use CM_PROD_Chrome_DEBUG.runsettings
+
 
 # Contribute
 TODO: Explain how other users and developers can contribute to make your code better. 
