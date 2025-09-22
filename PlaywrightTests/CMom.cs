@@ -17,6 +17,7 @@ using ClosedXML.Excel;
 using FluentAssertions.Extensions;
 using NUnit.Framework.Constraints;
 using Microsoft.ApplicationInsights;
+using System.Globalization;
 
 
 
@@ -503,8 +504,10 @@ public abstract class CMom : CMParam
     {
         string t1 = earlyTime.Replace("(", "").Replace(")", "");
         string t2 = lateTime.Replace("(", "").Replace(")", "");
-        DateTime dt1 = DateTime.Parse(t1);
-        DateTime dt2 = DateTime.Parse(t2);
+        string format = "dd/MM/yyyy HH:mm";
+        CultureInfo cult = CultureInfo.InvariantCulture;
+        DateTime dt1 = DateTime.ParseExact(t1, format, cult);
+        DateTime dt2 = DateTime.ParseExact(t2, format, cult);
         if (dt1 < dt2)
         {
             return true;
