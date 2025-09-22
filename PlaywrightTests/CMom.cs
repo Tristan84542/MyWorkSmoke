@@ -504,7 +504,17 @@ public abstract class CMom : CMParam
     {
         string t1 = earlyTime.Replace("(", "").Replace(")", "");
         string t2 = lateTime.Replace("(", "").Replace(")", "");
-        string format = "dd/MM/yyyy HH:mm";
+        string format = "dd/MM/yyyy HH:mm:ss";
+        //Monitor page time only report to minutes but download page report to second
+        //The few line of code should force t1 / t2 to match format so it could be correctly compare
+        if (t1.Length < format.Length)
+        {
+            t1 = t1 + ":00";
+        }
+        if (t2.Length < format.Length)
+        {
+            t2 = t2 + ":00";
+        }
         CultureInfo cult = CultureInfo.InvariantCulture;
         DateTime dt1 = DateTime.ParseExact(t1, format, cult);
         DateTime dt2 = DateTime.ParseExact(t2, format, cult);
