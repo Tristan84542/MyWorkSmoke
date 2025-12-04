@@ -103,9 +103,9 @@ public class CMParam
 
         if (Environment == "QA")
         {
-            PORTAL_URL = "https://portal.qa.hubwoo.com";
-            CMS_USRA = "SVS1";
-			CMS_PWDA = "Xsw23edc!";
+            PORTAL_URL = "";
+            CMS_USRA = "";
+			CMS_PWDA = "!";
             CMS_USRB = CMS_USRA;
             CMS_PWDB = CMS_PWDA;
 			CMS_USRC = CMS_USRA;
@@ -116,40 +116,40 @@ public class CMParam
             CMS_B_XLSX_CUSTNAME = "SV Buyer";
             CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
-            CMB_USRB = "SVB-0001ba";
-            CMB_PWDB = "Xsw23edc!";
-            intCatSup_C = "LenaSupplier1";
-            custName_C = "SV Buyer";
-            userName_C = "SVB-0001ba";
-            password_C = "Xsw23edc!";
-            viewURL_C = "https://search.qa.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=SVVIEW1&VIEW_PASSWD=q0E2Aft3PQy18&USER_ID=SV&BRANDING=search5&LANGUAGE=EN&HOOK_URL=https://portal.qa.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp&ADMIN=1&COUNTRY=GB&EASYORDER=1";
+            CMB_USRB = "";
+            CMB_PWDB = "";
+            intCatSup_C = "";
+            custName_C = "";
+            userName_C = "";
+            password_C = "";
+            viewURL_C = "";
             CMom.UpdateExcel(fileName_C, "Data 1", "F3", $"Smoke Internal Catalog 001 {testDateTime}");
 
         }
         else if (Environment == "PROD")
         {
-            PORTAL_URL = "https://portal.hubwoo.com";
-            CMS_USRA = "EPAM_TS1";
-			CMS_PWDA = "xsw23edc";
-			CMS_USRB = "EPAM_TS2";
-			CMS_PWDB = "xsw23edc";
+            PORTAL_URL = "";
+            CMS_USRA = "";
+			CMS_PWDA = "";
+			CMS_USRB = "";
+			CMS_PWDB = "";
 			CMS_USRC = CMS_USRB;
 			CMS_PWDC = CMS_PWDB;
-			FTP_USR = "anilava-epamusr01";
-            FTP_PWD = "z1mYS2GX62!";
+			FTP_USR = "";
+            FTP_PWD = "";
             CMS_B_SUP_NAME = "TESTSUPCDO2";
             CMS_B_TXT_CUSTNAME = "TESTCUSTCDO 6 Customer Classification";
             CMS_B_XLS_CUSTNAME = "TESTCUSTCDO 7";
             CMS_B_XLSX_CUSTNAME = "TESTCUSTCDO 1";
             CMS_C_CUSTNAME = CMS_B_XLSX_CUSTNAME;
             CMS_C_SUP_NAME = CMS_B_SUP_NAME;
-            CMB_USRB = "RegUserB";
-            CMB_PWDB = "RegUserB1!";
-            intCatSup_C = "TESTSUPCDO9";
-            custName_C = "TESTCUSTCDO 1";
-            userName_C = "RegUserC";
-            password_C = "RegUserC1!";
-            viewURL_C = "https://newui.hubwoo.com/catalog/p3pLogin.jsp?VIEW_ID=TESTCOE05-05&VIEW_PASSWD=t3S4TcKp89Rqy&USER_ID=HUBWOO&LANGUAGE=EN&COUNTRY=GB&EASYORDER=1&BRANDING=search5&HOOK_URL=https://newui.hubwoo.com/catalog/search5/customizings/default/oci_receiver.jsp";
+            CMB_USRB = "";
+            CMB_PWDB = "";
+            intCatSup_C = "";
+            custName_C = "";
+            userName_C = "";
+            password_C = "";
+            viewURL_C = "";
             CMom.UpdateExcel(fileName_C, "Data 1", "C3", $"Smoke Internal Catalog 001 {testDateTime}");
 
 
