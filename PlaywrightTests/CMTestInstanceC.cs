@@ -102,7 +102,7 @@ internal class CMTestInstanceC : CMom
     }
 
     [Test, Order(2)]
-    [Category("CMB Test")]
+    [Category("CMBA Test")]
     public async Task TC274468_CMBA_CUSTOM_LANDING_MANAGEMENT()
     {
         string startTime = await GetMonTime();
